@@ -2,7 +2,7 @@
 
 **Project:** 2a, Alignment
 **Repository:** `ga-alignment` *(name assumed)*
-**Document version:** 0.1, 2026-10-26 (first draft, from coordinator specification v0.7)
+**Document version:** 0.2, 2026-10-26 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8)
 **Owner:** McGrath lab
 **Status:** draft for discussion with the owner; no code written
 
@@ -27,10 +27,11 @@ here: the project designs them with the owner.
 
 | input | version | location | state |
 |---|---|---|---|
-| assemblies: one genome FASTA per panel assembly | panel P1 (25 assemblies, by accession version) | `<data root>/Genomes/<assembly_id>/<accession_version>/genome.fna.gz` (BGZF) | being downloaded (coordinator task); 2 of 25 were fetched on 2026-10-26 |
+| assemblies: one genome FASTA per panel assembly | panel P1 (25 assemblies, by accession version) | `<data root>/Genomes/<assembly_id>/<accession_version>/genome.fna.gz` (BGZF) | **downloaded 2026-10-26**: all 25 assemblies (with GFF3 for the 8 annotated), in Dropbox and on mzebra |
 | repeat annotation per assembly | from project 1, panel P1 | registered output of project 1 | not yet produced |
 | the panel | P1, `config/genome_panel_P1.tsv` | coordinator repository; read with `ga_common.panel` | available |
-| sequence names, lengths and NCBI chromosome labels of each assembly | as fetched | `provenance.json` in the same folder | with the download |
+| sequence names, lengths and NCBI chromosome labels of each assembly | as fetched | `provenance.json` in the same folder | available |
+| accessions of LG2, LG9, LG10, LG11, LG13, LG20 per assembly | P1, `config/panel_chromosomes_P1.tsv` | coordinator repository (generated from the downloads) | available |
 
 - The registry holds no entries yet. Until it does, `ga_common.paths` gives the location of each assembly; the
   project never builds a data path by hand.
@@ -40,12 +41,20 @@ here: the project designs them with the owner.
 - Whether the repeat annotation is an input to the alignment at all (soft-masking) is the project's decision
   (section 7).
 
-**Naming caution (observed on the first downloads).** Sequence names are exactly as NCBI delivers them: RefSeq
-names (`NC_...`, `NW_...`) for the 8 annotated assemblies, GenBank names (`CM...`, `CP...`) for the others. NCBI's
-chromosome labels (`LG2`, ...) are the submitters' and are not guaranteed to be the same chromosome in every
-assembly: for example, LG2 of `MZ_MZ4f` is 40,706,781 bases against 48,807,247 for LG2 of the reference
-(`NC_135168.1`). The coordinator does not interpret this; how chromosomes are anchored to the reference is for this
-project and project 2b to decide.
+**Naming and label cautions (observed on the P1 download; coordinator specification, section 4).**
+- Sequence names are exactly as NCBI delivers them: RefSeq names (`NC_...`) for the 8 annotated assemblies,
+  GenBank names (`CM...`, `OZ...`) for the others.
+- NCBI's chromosome labels are the submitters'. 17 assemblies use `LG1`–`LG20`, `LG22`, `LG23`; 8 use plain
+  numbers with the same set (`AC_SAMEA123396440`, `AC_SAMEA123396441`, `AC_fAstCal68`, `AS_SAMEA123396442`,
+  `AS_Sanger`, `DT_SAMEA123396444`, `MZ_SAMEA123396453`, `MZ_SAMEA123396454`). That a number is the same
+  chromosome as the reference's LG is a **working assumption**, not a result. Accession order is not a guide to
+  labels (in `AS_Sanger`, label 9 is `NC_138960.1`, after label 23's `NC_138958.1`).
+- **Length observations** (not interpreted by the coordinator; assembly completeness may explain some):
+  the reference's LG2 is 48.8 Mb against 38.5–42.3 Mb in the 24 other assemblies; LG3 varies 1.8-fold across
+  assemblies (58.7–105.3 Mb; reference 64.4); LG20 is only 17.8 Mb (`MC_MC3m`) and 20.3 Mb (`CV_CV2f`) against
+  35–42 Mb in most, and 44.5–46.1 Mb in `DT_004f` and `CV_CV4f`; LG10 of `YH_YH2f` is 28.4 Mb against 34–42 elsewhere;
+  `MZ_UMD2025` is short on LG3, LG9, LG11 and LG13. How chromosomes are anchored across assemblies is for this
+  project and project 2b to decide.
 
 ---
 
@@ -132,7 +141,7 @@ The plan (outputs, formats, checks) is agreed with the owner and recorded here *
 
 ## 8. Status
 
-Not started. Specification drafted; waiting for the P1 download (and the repeat annotation, if it is an input)
+Not started. Specification drafted; the P1 genomes are available; waiting for the repeat annotation (if it is an input)
 and for the owner's plan. Nothing is ready to integrate.
 
 ---
