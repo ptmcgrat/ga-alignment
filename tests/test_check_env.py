@@ -15,13 +15,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import check_env as ce  # noqa: E402
 
+V3 = "avx avx2 bmi1 bmi2 f16c fma abm movbe"
 CPUINFO = (
-    "processor\t: 0\nflags\t\t: fpu vme sse4_2 avx avx2 fma\n\n"
-    "processor\t: 1\nflags\t\t: fpu vme sse4_2 avx avx2 fma\n\n"
+    "processor\t: 0\nflags\t\t: fpu vme sse4_2 " + V3 + "\n\n"
+    "processor\t: 1\nflags\t\t: fpu vme sse4_2 " + V3 + "\n\n"
     "processor\t: 2\nflags\t\t: fpu vme sse4_2 avx\n"
 )
 CONFIG = ('<cactus_workflow_config>\n'
-          '  <graphmap zipAlleles="1" GAFOverlapFilterExact="1" minigraphSortInput="mash"/>\n'
+          '  <!-- zipAlleles: run rgfa-zip on the minigraph GFA after construction -->\n'
+          '  <graphmap GAFOverlapFilterExactGap="31000" zipAlleles="1" GAFOverlapFilterExact="1"\n'
+          '            minigraphSortInput="mash"/>\n'
           '</cactus_workflow_config>\n')
 PANGENOME_HELP = ("usage: cactus-pangenome jobStore seqFile --outDir --outName --reference "
                   "[--refContigs] [--otherContig] [--gfa] [--clip CLIP] [--filter] [--maxCores] "
@@ -74,10 +77,17 @@ class Helpers(unittest.TestCase):
         self.assertFalse(ce.option_present("--filter", text))
         self.assertFalse(ce.option_present("--clip", "only --clipNonMinigraph here"))
 
-    def test_attributes_present(self):
-        found = ce.attributes_present(["zipAlleles", "missingAttribute"], CONFIG)
-        self.assertEqual(len(found["zipAlleles"]), 1)
+    def test_attribute_values_read_settings_not_comments(self):
+        found = ce.attribute_values(["zipAlleles", "GAFOverlapFilterExact", "missingAttribute"], CONFIG)
+        self.assertEqual(found["zipAlleles"], ["1"])
+        self.assertEqual(found["GAFOverlapFilterExact"], ["1"])     # not GAFOverlapFilterExactGap
         self.assertEqual(found["missingAttribute"], [])
+        only_comment = "<!-- zipAlleles: explained here -->"
+        self.assertEqual(ce.attribute_values(["zipAlleles"], only_comment)["zipAlleles"], [])
+
+    def test_count_flags(self):
+        self.assertEqual(ce.count_flags(CPUINFO, ce.X86_64_V3), 2)
+        self.assertEqual(ce.count_flags(CPUINFO, ["avx"]), 3)
 
     def test_interpreter_from_shebang(self):
         self.assertEqual(ce.interpreter_from_shebang("#!/usr/bin/env python3"), "python3")
@@ -164,7 +174,9 @@ class Runs(unittest.TestCase):
         self.assertEqual(rows["option --permissiveContigFilter"], ("ok", "in cactus-graphmap-split"))
         # a stage whose help cannot be read is flagged, but does not fail the run
         self.assertEqual(rows["cactus-graphmap-join --help"][0], "warn")
-        self.assertEqual(rows["config zipAlleles"][0], "ok")
+        self.assertEqual(rows["config zipAlleles"], ("ok", 'zipAlleles="1"'))
+        self.assertEqual(rows["config minigraphSortInput"], ("info", 'minigraphSortInput="mash"'))
+        self.assertEqual(rows["x86-64-v3"][0], "ok")
 
     def test_conda_environment_is_exported(self):
         stand_in = {"CONDA_EXE": "/stand-in/conda", "CONDA_DEFAULT_ENV": "ga-alignment"}
@@ -186,6 +198,18 @@ class Runs(unittest.TestCase):
         code, _, _ = self.run_main(self.argv("--go"))
         self.assertEqual(code, 1)
         self.assertEqual(self.report()[1]["avx2"][0], "fail")
+
+    def test_a_switched_off_attribute_is_flagged(self):
+        code, _, _ = self.run_main(self.argv("--go"),
+                                   runner=stand_in_runner(CONFIG.replace('Exact="1"', 'Exact="0"')))
+        self.assertEqual(code, 0)
+        self.assertEqual(self.report()[1]["config GAFOverlapFilterExact"][0], "warn")
+
+    def test_no_x86_64_v3_fails(self):
+        self.cpuinfo.write_text("processor\t: 0\nflags\t\t: fpu avx avx2 fma\n")
+        code, _, _ = self.run_main(self.argv("--go"))
+        self.assertEqual(code, 1)
+        self.assertEqual(self.report()[1]["x86-64-v3"][0], "fail")
 
     def test_missing_config_attribute_is_flagged_not_failed(self):
         config = CONFIG.replace(' zipAlleles="1"', "")

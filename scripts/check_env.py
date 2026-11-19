@@ -3,7 +3,8 @@
 
 Checks, in order:
   host        host name, user, CPU threads, load average
-  avx2        CPU threads whose flags include avx2 (the Cactus release images need it)
+  avx2        CPU threads whose flags include avx2, and those with every x86-64-v3 flag
+              (Cactus 4.0.0's binaries are built for x86-64-v3)
   disk        free space in the home, scratch and containers folders
   python      the interpreter running this script; the conda environment, exported to a file
   ga_common   the coordinator's library imports, and Paths.load() reads its configuration
@@ -12,7 +13,7 @@ Checks, in order:
   cactus      the image file's size and sha256; the help texts of cactus-pangenome and of the
               stages cactus-graphmap, -graphmap-split and -graphmap-join; whether the options the
               plan uses appear in them; whether the configuration attributes the plan relies on
-              appear in the image's default config
+              are set, and to what, in the image's default config (values, not mere mentions)
 
 A dry run unless --go. With --go it writes one new folder, <scratch>/env/<UTC timestamp>/, with
 report.tsv, report.md and the captured texts. It never overwrites: if that folder exists it stops.
@@ -33,7 +34,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-DEFAULT_SIF = Path.home() / "containers" / "cactus_v3.3.0.sif"
+DEFAULT_SIF = Path.home() / "containers" / "cactus_v4.0.0.sif"
 DEFAULT_SCRATCH = Path.home() / "scratch" / "ga-alignment"
 
 # Options the plan uses (proposal, section 4), looked up in the installed version's help texts.
@@ -42,8 +43,10 @@ PLANNED_OPTIONS = [
     "--maxCores", "--mgCores", "--mapCores", "--consCores", "--indexCores", "--maxMemory",
     "--permissiveContigFilter", "--delFilter",
 ]
-# Configuration attributes described in the uploaded Minigraph-Cactus documentation.
-CONFIG_ATTRIBUTES = ["zipAlleles", "GAFOverlapFilterExact", "minigraphSortInput"]
+# Configuration attributes the plan relies on, and the value each must have (None: recorded only).
+CONFIG_EXPECTED = {"zipAlleles": "1", "GAFOverlapFilterExact": "1", "minigraphSortInput": None}
+# The x86-64-v3 instruction set, as /proc/cpuinfo names its flags (abm is LZCNT).
+X86_64_V3 = ["avx", "avx2", "bmi1", "bmi2", "f16c", "fma", "abm", "movbe"]
 CONFIG_NAME = "cactus_progressive_config.xml"
 # The all-in-one command first (required), then the stages whose options the plan uses.
 HELP_TOOLS = ["cactus-pangenome", "cactus-graphmap", "cactus-graphmap-split", "cactus-graphmap-join"]
@@ -51,10 +54,18 @@ HELP_TOOLS = ["cactus-pangenome", "cactus-graphmap", "cactus-graphmap-split", "c
 
 # ---------------------------------------------------------------- helpers (pure, tested)
 
+def count_flags(cpuinfo_text, flags):
+    """Number of 'flags' lines (one per CPU thread) that list every one of the flags as a whole word."""
+    total = 0
+    for line in cpuinfo_text.splitlines():
+        if line.startswith("flags"):
+            words = set(line.split(":", 1)[-1].split())
+            total += all(flag in words for flag in flags)
+    return total
+
+
 def count_avx2(cpuinfo_text):
-    """Number of 'flags' lines (one per CPU thread) that list avx2 as a whole word."""
-    return sum(1 for line in cpuinfo_text.splitlines()
-               if line.startswith("flags") and re.search(r"(?<!\S)avx2(?!\S)", line))
+    return count_flags(cpuinfo_text, ["avx2"])
 
 
 def option_present(option, text):
@@ -62,13 +73,10 @@ def option_present(option, text):
     return re.search(r"(?<![\w-])" + re.escape(option) + r"(?![\w-])", text) is not None
 
 
-def attributes_present(attributes, config_text):
-    """For each attribute, the config lines that mention it (an empty list if none)."""
-    found = {}
-    for attribute in attributes:
-        pattern = re.compile(r"\b" + re.escape(attribute) + r"\b")
-        found[attribute] = [line.strip() for line in config_text.splitlines() if pattern.search(line)]
-    return found
+def attribute_values(attributes, config_text):
+    """For each attribute, the values it is set to in the config (attribute="value"); comments that only
+    mention it do not count."""
+    return {a: re.findall(r"(?<![\w-])" + re.escape(a) + r'="([^"]*)"', config_text) for a in attributes}
 
 
 def interpreter_from_shebang(first_line):
@@ -189,12 +197,17 @@ def collect(args, runner, outdir):
     except OSError:
         add("load average", "info", "not available")
 
-    # avx2
+    # avx2 and x86-64-v3
     try:
-        threads = count_avx2(Path(args.cpuinfo).read_text())
+        cpuinfo = Path(args.cpuinfo).read_text()
+        threads = count_avx2(cpuinfo)
         add("avx2", "ok" if threads > 0 else "fail",
             "{} CPU threads list avx2".format(threads) if threads > 0 else
             "no CPU thread lists avx2: the Cactus release images will not run (legacy binaries would)")
+        threads = count_flags(cpuinfo, X86_64_V3)
+        add("x86-64-v3", "ok" if threads > 0 else "fail",
+            "{} CPU threads list all of {}".format(threads, " ".join(X86_64_V3)) if threads > 0 else
+            "no CPU thread lists all of {}: Cactus 4.0.0's binaries need them".format(" ".join(X86_64_V3)))
     except OSError as error:
         add("avx2", "fail", "could not read {}: {}".format(args.cpuinfo, error))
 
@@ -267,10 +280,16 @@ def collect(args, runner, outdir):
         add("cactus config", "warn", problem)
     else:
         add("cactus config", "ok", "{} (saved to {})".format(path, save("cactus_config.xml", text)))
-        for attribute, lines in attributes_present(CONFIG_ATTRIBUTES, text).items():
-            add("config " + attribute, "ok" if lines else "warn",
-                lines[0][:160] if lines else
-                "absent from this image's default config: decide the Cactus version (proposal, section 7)")
+        for attribute, values in attribute_values(list(CONFIG_EXPECTED), text).items():
+            expected = CONFIG_EXPECTED[attribute]
+            if not values:
+                add("config " + attribute, "warn", "not set in this image's default config")
+            elif expected is None or all(v == expected for v in values):
+                add("config " + attribute, "ok" if expected else "info",
+                    "{}=\"{}\"".format(attribute, values[0]))
+            else:
+                add("config " + attribute, "warn", "{} is set to {}, not \"{}\"".format(
+                    attribute, ", ".join('"{}"'.format(v) for v in values), expected))
     return rows
 
 
