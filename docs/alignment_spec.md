@@ -1,14 +1,14 @@
 # Alignment specification
 
 **Project:** 2a, Alignment
-**Repository:** `ga-alignment` *(name assumed)*
-**Document version:** 0.3, 2026-10-26 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10)
+**Repository:** `ga-alignment` (`github.com/ptmcgrat/ga-alignment`)
+**Document version:** 0.4, 2026-11-18 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment)
 **Owner:** McGrath lab
-**Status:** draft for discussion with the owner; no code written; **start at section 0 and `docs/alignment_briefing.md`**
+**Status:** questions 1 and 2 decided (sections 4 to 6); environment being set up (zip `004`); gate 1 in progress
 
 This is the single specification document of project 2a. It is always replaced whole. It records what the
-coordinator specification already fixes and leaves everything else open. The methods are not designed
-here: the project designs them with the owner.
+coordinator specification already fixes, and the methods the project has decided. Questions 1 and 2 were left to the
+student by the owner (2026-11-17); what is still open is in section 7.
 
 ---
 
@@ -84,6 +84,8 @@ Anything that needs another project goes to the coordinator (blocking items and 
   `MZ_UMD2025` is short on LG3, LG9, LG11 and LG13. Kumar et al. 2025 describe the reference's left arm of chromosome 2
   and the highly repetitive chromosome 3 as the places where alignments of *M. zebra* genomes to it differ most. How
   chromosomes are anchored across assemblies is for this project and project 2b to decide.
+- `YH_LG10Y` (the Y haplotig, held beside the panel) is at `Genomes/YH_LG10Y/h2tg000014l/`, with `genome.fna.gz` and
+  `provenance.json` but no `sequence_report.jsonl` (observed 2026-11-18).
 
 ---
 
@@ -116,28 +118,102 @@ species table is `config/species_context.tsv` in the coordinator repository.
 
 ## 3. Outputs
 
-- Contract `alignment`: PAF with the `cs` tag, each assembly against the reference (owner: this project).
-  PAF is 0-based, half-open. Exact fields are to be agreed (section 7).
-- Contract `graph`: GFA, unclipped (owner: this project).
+- Contract `alignment`: PAF with the `cs` tag, each assembly against the reference (owner: this project): one PAF per
+  assembly, written by minimap2 with `-c --cs` (section 4). PAF is 0-based, half-open. Exact fields are to be agreed (section 7).
+- Contract `graph`: GFA, unclipped (owner: this project): Minigraph-Cactus's full graph, `--gfa full` (section 4).
 - Every output names the panel version it was built from, and is registered through the coordinator.
 - Location and version-folder layout of these outputs are not yet defined (coordinator section 13: where
-  registered outputs live).
+  registered outputs live). Until the coordinator adds data-root folders for them, results stay in `~/scratch/ga-alignment`.
 
 ---
 
 ## 4. Methods
 
-**Not designed yet.** The two questions to settle first are in `docs/alignment_briefing.md` (Parts B and C).
-Fixed by the coordinator specification: pairwise alignment of every assembly to the
-reference; an unclipped pangenome graph; whole genomes (decision 2026-10-26); all results in reference
-coordinates. Not decided: the graph builder (Minigraph-Cactus or PGGB, coordinator open question), the
-pairwise aligner and its settings, and how large inversions are handled in the pairwise step.
+Decided by the student, to whom the owner left questions 1 and 2 (2026-11-17); the reasons are in section 6.
+Fixed by the coordinator specification: pairwise alignment of every assembly to the reference; an unclipped pangenome
+graph; whole genomes (decision 2026-10-26); all results in reference coordinates.
 
-**Prior art, recorded and not adopted:** Kumar et al. 2025 aligned new assemblies to the reference with minimap2 2.28 (through
-D-GENIES) and confirmed all six inversions in the YH assemblies; Quah et al. 2025 built a minigraph (structural-variant) graph of
-8 assemblies; the Human Pangenome Reference Consortium used Minigraph-Cactus and PGGB at 90 haplotypes.
+### Pairwise alignment (contract `alignment`)
 
-The plan (outputs, formats, checks) is agreed with the owner and recorded here **before any code is written**.
+- **Tool:** minimap2 2.31 (bioconda), one version for every PAF; the version the binary reports is recorded with each output.
+- **Target and queries:** the reference `MZ_NMK2024a` against each of the other 24 P1 assemblies; whole genomes, sequence
+  names as delivered, inputs as in section 2.
+- **Settings:** base-level alignment with the `cs` tag (`-c --cs`), preset `asm5` for all 24.
+- **Sensitivity check:** one `asm10` run on `YH_YH1m`, compared with its `asm5` alignment on coverage and identity per
+  reference chromosome, the six inversions against Table S4 and Figures S2–S7 of Kumar et al., fragmentation near the
+  breakpoints, LG3 coverage, and wall time and peak memory. If the two agree, `asm5` stands and the comparison is reported.
+- **Reverse direction** (the reciprocity check): the reference aligned to `YH_YH1m` and to `AC_SAMEA123396441`.
+- **Per assembly:** one PAF, plus a log of command, version, time and memory.
+
+### Graph (contract `graph`)
+
+- **Tool:** `cactus-pangenome` from Cactus v3.3.0 (latest release, 2026-08-11), run under Apptainer from the release image
+  `quay.io/comparative-genomics-toolkit/cactus:v3.3.0`; the image file's sha256 is recorded. Whether this release has the
+  configuration attributes the inversion checks rely on (`zipAlleles`, `GAFOverlapFilterExact`) is read from the image itself
+  (section 7). The release images need a CPU with AVX2.
+- **Reference:** `--reference MZ_NMK2024a`; `--refContigs` lists its 22 linkage-group sequences, from its `provenance.json`;
+  `--otherContig` keeps the rest; sample names are the assembly ids.
+- **Outputs:** the full graph (`--gfa full`) is the `graph` deliverable. On the subset the clipped graph is also written, to
+  measure what clipping would remove. Cactus's stats directory is kept with every run.
+- **Settings:** documented defaults. Two candidates for change, each decided from the pairwise results and recorded in
+  section 6 with its reason: `--delFilter` (the reference's LG2) and `--permissiveContigFilter` (LG3). Every option is checked
+  against the installed version's own help before it is used.
+- **Throttling:** `--maxCores`, `--mgCores`, `--mapCores`, `--consCores`, `--indexCores` and `--maxMemory` set explicitly.
+- **Stages:** (1) the subset on LG2, LG3, LG9, LG10, LG11, LG13 and LG20 plus one control chromosome, with each assembly's
+  sequences chosen from the pairwise alignments, not from labels; (2) one whole-genome run of the subset, to test Cactus's own
+  chromosome assignment and measure cost at a second size; (3) all 25 assemblies in one run, built from scratch rather than
+  extended from the subset graph.
+
+### The subset
+
+| role | id | why |
+|---|---|---|
+| reference | `MZ_NMK2024a` | required |
+| no inversions; label test | `AC_SAMEA123396441` | one contig per chromosome; plain-number labels |
+| same species | `MZ_MZ4f` or `MZ_NMetZ`, whichever is Kumar's MZ_GT3.2f/3.3f | Kumar's Figures S2–S7 apply directly |
+| all six inversions | `YH_YH1m` | Kumar's YH_GT1.1m (to confirm); LG10 noted as an X/Y mosaic |
+| all six; sequence split across chromosomes | `YH_YH2f` | LG10 X/X; in Kumar's Figure S4 its LG10 is split across scaffolds |
+| LG20a only | `RC_006pf` | *R. longiceps*, RefSeq names |
+| optional | `DT_SAMEA123396444` | inverted on 9, 11 and 20, not on 2, 10 or 13 |
+
+### What the graph needs from the pairwise alignments
+
+| from the PAFs | what it decides for the graph |
+|---|---|
+| the reference chromosome each query sequence aligns to, unplaced scaffolds included | the sequences in each chromosome run (not the labels); a prediction of Cactus's own assignment, checked against its split log |
+| sequences aligning substantially to two chromosomes | what Cactus will drop at the split; accept and report it, or raise it with 2b |
+| size and position of the reference-only stretch on LG2 | whether `--delFilter`'s installed default would drop mappings there, and the value to test |
+| how much of each assembly's LG3 aligns, and to what | whether any LG3 risks being called ambiguous (`--permissiveContigFilter`), and what `--otherContig` must keep |
+| reference sequences outside the 22 linkage groups that receive alignments | what `--otherContig` keeps |
+| each assembly's inverted blocks and large insertions | the yardsticks the graph must reproduce |
+| coverage and identity per chromosome | the choice of control chromosome |
+
+The subset's graph runs need only the subset's alignments. The full graph needs all 24 reviewed first: sequences split across
+chromosomes, or LG3s at risk, can sit in assemblies outside the subset (`MC_MC3m` and `CV_CV2f` are).
+
+### Order of work
+
+Each step's code comes as the next numbered zip; each step ends with results sent back and reviewed. Gates (section 4a) ask
+their questions before their commands.
+
+1. **Environment** (zip `004`): conda env, Cactus image, `scripts/check_env.py`.
+2. **Inputs** (gate 1): locate the 25 genomes through `ga_common`; check names and lengths against `provenance.json`; one
+   sequence table per assembly (name, length, NCBI chromosome label, role); the reference's chromosomes; Kumar's assemblies
+   among the panel ids. Decides the final subset.
+3. **Pairwise on the subset** (gate 2): `asm5` for the subset, `asm10` for `YH_YH1m`, the reverse direction for `YH_YH1m` and
+   `AC_SAMEA123396441`; summaries as in the table above, reviewed against Table S4 and Figures S2–S7.
+4. **Graph settings**, from step 3, each recorded in section 6 with its reason.
+5. **Graph on the subset** (gate 3): the chromosome runs, then one whole-genome run of the subset; checks as in section 5.
+6. **Full panel:** the remaining pairwise alignments (they can run during step 5), reviewed the same way; then the full graph,
+   all 25 in one run; gate 4 checks; gate 5 registration, once the coordinator has added a data-root folder for the results.
+
+**Prior art, recorded and not adopted:** Kumar et al. 2025 anchored GT3a's own scaffolds to linkage groups with minimap2 2.28
+(through D-GENIES); the alignments behind their Figures S2–S7 used minimap2 2.22 with default settings, after which secondary
+matches, blocks under 30% identity or under 10 kb, and contigs with under 2 Mb aligned were removed. They confirmed all six
+inversions in the YH assemblies. Quah et al. 2025 built a minigraph (structural-variant) graph of 8 assemblies; the Human
+Pangenome Reference Consortium used Minigraph-Cactus and PGGB at 90 haplotypes.
+
+The plan (outputs, formats, checks) is recorded here **before any code is written**: v0.4 records it, before the first code (zip `004`).
 
 ---
 
@@ -211,13 +287,27 @@ The plan (outputs, formats, checks) is agreed with the owner and recorded here *
 
 ---
 
-## 5. Checks (proposed; to be agreed)
+## 5. Checks
 
-- every output validates against its contract version (once defined);
-- every panel assembly has a PAF; query names and lengths match the assembly's `provenance.json`;
-- target names and lengths match the reference's `provenance.json`;
-- outputs name the panel version; commands and tool versions are recorded;
-- the checks of the briefing (Part C2) and the known features (Part C1) are reported, with what could not be checked.
+Written once and applied to every run, in four kinds. Thresholds for the measured kind are set from the subset's numbers
+before the full run, relative to the same chromosome in the other assemblies.
+
+1. **Exact: 100%, or the output is not accepted.** Query and target names and lengths match their `provenance.json`; every
+   panel assembly has a PAF; every `cs` string reproduces its aligned query segment and agrees with the CIGAR; every graph path
+   spells its input (our own script, case-insensitive, differences reported with positions); one complete, forward, acyclic
+   reference path per reference sequence; every output validates against its contract version (once defined).
+2. **Accounting:** every input base is aligned or in the graph, or listed as missing with a reason; our count from the GFA
+   matches Cactus's `clipped-by-reference-contig.tsv` exactly.
+3. **Known features.** Must be reproduced on the subset: YH carries all six inversions, each inverted block's ends inside
+   Table S4's intervals; no inversion in AC or MZ; RC inverted on LG20a only; DT as in the subset table, if included. A failure
+   sends the plan back to question 1. Reported, not scored: the reference's LG2 left arm; LG3; the short chromosomes (LG20 in
+   `MC_MC3m` and `CV_CV2f`, LG10 in `YH_YH2f`, and `MZ_UMD2025`); label assignments; the LG9 and LG11 states in CV, MC and AS.
+4. **Measured:** coverage and identity per chromosome; reciprocity; each assembly's share of the graph per chromosome; graph
+   length per chromosome; time, memory and disk.
+
+Graph and PAF must agree on the inversion intervals, the reference-only stretches and the contig-to-chromosome assignment.
+Outputs name the panel version; commands, tool versions and image checksums are recorded. Disagreements are flagged to
+project 2b through the coordinator; deciding between assembly error and biology is 2b's. What could not be checked is reported.
 
 ---
 
@@ -231,6 +321,14 @@ The plan (outputs, formats, checks) is agreed with the owner and recorded here *
 | 2026-10-26 | The first conversation starts at the briefing (prior work, then questions 1 and 2); no installation or run before the owner agrees the plan | the owner wants the design questions settled before compute |
 | 2026-10-26 | The assistant works with a student under the owner's supervision, with checkpoint questions (section 4a) | the owner's request |
 | 2026-10-26 | The student uploads PDFs of the reference papers and pages (briefing Part D); the assistant confirms it can see items 1–8 before going on | uploaded copies are always present and fixed to a version |
+| 2026-11-04 | Graph builder: Minigraph-Cactus; the deliverable is the unclipped (full) graph | the owner with the student: the design is anchored on the reference, matching "all results in reference coordinates", and the pipeline reports exactly what is missing from each graph |
+| 2026-11-04 | Pairwise aligner: minimap2 | the owner with the student: the only documented option that writes the `cs` tag the `alignment` contract requires |
+| 2026-11-04 | The comparison of builders in briefing Part B3 is dropped | the owner's decision |
+| 2026-11-17 | The owner leaves the decisions on questions 1 and 2 to the student | the owner's decision |
+| 2026-11-17 | Methods, subset and checks as in sections 4 and 5 | the student's decision |
+| 2026-11-17 | Preset `asm5` for all 24, with one `asm10` run on `YH_YH1m` as a sensitivity check | `asm5` fits the panel's low divergence; the check covers the breakpoints and LG3, where divergence is local and higher |
+| 2026-11-17 | Environment: conda env `ga-alignment` with Apptainer 1.5.3 and squashfuse 0.6.1, Python 3.11, minimap2 2.31 and `ga_common` at `common-v0.2.1`; Cactus v3.3.0 image in `~/containers` | project 1's tested recipe (base's Apptainer 1.2.2 cannot mount images); one pinned version of each tool for all outputs |
+| 2026-11-18 | Pairwise alignment of all 24 assemblies can start | the owner's confirmation |
 
 ---
 
@@ -238,24 +336,34 @@ The plan (outputs, formats, checks) is agreed with the owner and recorded here *
 
 | question | blocking |
 |---|---|
-| **Question 1:** which pairwise settings and which graph builder, and the comparison on a subset (briefing, Part B)? The student proposes; the owner agrees | **yes, before any run** |
-| **Question 2:** what checks, against which known features, and what counts as right (briefing, Part C)? | **yes, before any output is accepted** |
-| Is the repeat annotation (soft-masking) an input to the alignment? | no |
-| Exact fields of the `alignment` and `graph` contracts | before first integration |
-| **Output layout:** folder, version naming and manifest for the alignment and graph outputs (the common library knows only `Genomes/` and `RepeatInformation/`); the student proposes with the owner, then the coordinator adds the paths | before the first output is registered |
+| Does the Cactus v3.3.0 image have `zipAlleles` and the exact overlap filter in its default configuration (read by `scripts/check_env.py`)? If not: v3.3.0 with its own documentation, or a later release | before the graph run |
+| Kumar et al.'s Table S4: the backwards 20a/20b interval (start 29,716,509, end 29,673,642), and a tolerance for the zero-width breakpoints (LG10 breakpoint 2; the shared 11a/11b breakpoint) | before the inversion checks are scored |
+| Which panel ids are Kumar's YH_GT1.1m, YH_GT1.2f, MZ_GT3.2f and MZ_GT3.3f (from the assembly names in `provenance.json`) | before the inversion checks are scored |
+| Is `M_zebra_GT3a` (Kumar et al.; WGS project JBEVYI000000000, version JBEVYI010000000) the same assembly as GCF_041146795.1? (NCBI's assembly report). Table S4 is in GT3a coordinates | before Table S4 positions are compared directly |
+| Is the repeat annotation (soft-masking) an input to the alignment? (Minigraph-Cactus ignores soft-masking by default) | no |
+| Exact fields of the `alignment` and `graph` contracts: short or long `cs`; all PAF records or a filtered set; sorted or not (coordinator, with project 3) | before first integration |
+| **Output layout:** folder, version naming and manifest for the alignment and graph outputs (the common library knows only `Genomes/` and `RepeatInformation/`); the student proposes, then the coordinator adds the paths | before the first output is registered |
+| Data-root folders for the results, added to `ga_common.paths` and `sync.py` by the coordinator; until then results stay in `~/scratch/ga-alignment` | before results leave scratch |
 | Readers and validators for PAF and GFA, and coordinate-frame conversions, to be added to the common library by the coordinator once the fields are agreed | before first integration |
-| Is `M_zebra_GT3a` (Kumar et al.; WGS project JBEVYI000000000) the same assembly as GCF_041146795.1? (check NCBI's assembly report) | no |
-| Which builders can run on mzebra (no docker or singularity): binary release or conda | no |
-| How chromosomes are anchored across assemblies given mixed naming and submitter-specific LG labels (section 2) | no |
+| How chromosomes are anchored across assemblies given mixed naming and submitter-specific LG labels (section 2): tested by the pairwise alignments (section 4), with project 2b | no |
 | Is the YH LG10 Y haplotig (`YH_LG10Y`, held beside the panel) aligned too? | no |
-| Where the tools run, and how long jobs are kept alive on the shared server | no |
+| The briefing says mzebra has no docker or singularity; Apptainer runs there from a project conda env (project 1's recipe). A correction for the coordinator | no |
 
 ---
 
 ## 8. Status
 
-Not started. Specification and briefing drafted; the P1 genomes are available. The first conversation starts at section 0; the
-student's proposals for questions 1 and 2 are awaited. The repeat annotation (if it is an input) is not yet produced. Nothing is ready to integrate.
+- Questions 1 and 2 decided (sections 4 to 6) by the student, to whom the owner left them (2026-11-17).
+- **Gate 0** (2026-11-12): the PAF columns and the difference between minigraph and Cactus were correct first time. What a
+  graph adds over pairwise PAFs, and what clipping removes, were correct on the second try. Explained after two attempts: what
+  `cs` records beyond the CIGAR and why it must be written at alignment time; that clipping cannot remove deletions (that is
+  `--delFilter`); and how an inversion appears in PAF records, to be rechecked on real output at gate 2, question 10.
+- **Gate 1** (inputs): first answers 2026-11-18; revisions awaited.
+- Zip `004` sets up the environment (conda env, Cactus image, `scripts/check_env.py`); its report is awaited. No genome has been
+  read and nothing has been aligned.
+- 2026-11-18: an environment zip mistakenly numbered `alignment_001` was committed here (5d9f9e2) and reverted (f60fbea); the
+  same content comes as `004`. The same zip had been pushed to `ga-repeats` by mistake (f15e6dc) and was reverted there.
+- The repeat annotation (if it is an input) is not yet produced. Nothing is ready to integrate.
 
 ---
 
@@ -276,6 +384,11 @@ student's proposals for questions 1 and 2 are awaited. The repeat annotation (if
   and `panel_chromosomes_P1.tsv` from the coordinator repository, and the papers and pages of the briefing, Part D, **uploaded by the
   student as PDFs** (items 1–8 required, 9 and 10 may follow).
 - Python 3.9 is the minimum for code that uses the common library.
+- **`VERSION`** holds the number of the last zip applied (`004`). Every zip's instructions start by checking `pwd`,
+  `git remote -v` and `VERSION` before anything is copied.
+- **This project on mzebra:** conda env `ga-alignment` (section 6); Cactus image `~/containers/cactus_v3.3.0.sif`, with the
+  pull cache and tmp in `~/containers/cache` and `~/containers/tmp`, set per session (`.bashrc` is not edited); working space
+  `~/scratch/ga-alignment`; long jobs in `screen`; nobody commits or pushes on mzebra.
 
 ---
 
