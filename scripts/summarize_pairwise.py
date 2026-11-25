@@ -8,14 +8,17 @@ Inversions (forward runs, the reference as target), for each unit of Supplementa
               of such blocks in total
   call        the unit's interior runs from the end of its first breakpoint interval to the start of its second.
               The query sequence with most interior bases is the unit's sequence; its background strand is its
-              majority strand outside every unit on that chromosome. Inverted if >= 80% of its interior bases lie
-              on the other strand, normal if <= 20%, otherwise unresolved; unresolved too when that sequence has
-              under 1 Mb outside the units (interior and flanks on different sequences) or under 100 kb inside
+              majority strand in the flanks next to the units: within 2 Mb before the first unit and after the last
+              unit on that chromosome. Inverted if >= 80% of its interior bases lie on the other strand, normal if
+              <= 20%, otherwise unresolved; unresolved too when that sequence has under 0.5 Mb in those flanks
+              (interior and flanks on different sequences) or under 100 kb inside
   breakpoints for an inverted unit: collinear segments of that sequence (split where the strand changes or the
-              query position jumps by more than 1 Mb; segments of >= 100 kb kept). The observed interval runs from
-              the last other segment before the inverted segments to the first of them, and from the last of them
-              to the next other segment. Scored by overlap with Supplementary file 4's interval; the distance of
-              the inverted block ends from that interval is reported
+              query position jumps by more than 1 Mb; segments of >= 100 kb kept). A segment belongs to the unit's
+              inverted stretch if it is on the other strand and most of it lies inside the unit. The observed
+              interval runs from the end of the nearest other segment that ends before the stretch to its start,
+              and from its end to the start of the nearest other segment that starts after it. Scored by
+              overlap with Supplementary file 4's interval for YH only, whose alignments that table came from;
+              reported for the others, with the distance of the inverted block ends from the interval
   expected    published/expected_inversions.tsv (from Supplementary file 2). Scored rows decide the known-feature
               check: it fails only on a disagreement; unresolved units are reported, not failed
 Measured, per forward run and reference sequence: coverage by primary records, BLAST-like identity (column 10 /
@@ -51,13 +54,13 @@ SEG_COLUMNS = ["run", "target", "label", "query", "strand", "ts", "te", "qs", "q
 INV_COLUMNS = ["run", "assembly", "preset", "unit", "chromosome", "main_query", "interior_bp", "interior_other_bp",
                "background_bp", "background_strand", "opposite_fraction", "call", "reason", "inverted_start",
                "inverted_end", "bp1_observed", "bp1_published", "bp1_overlap", "bp1_distance", "bp2_observed",
-               "bp2_published", "bp2_overlap", "bp2_distance", "expected", "basis", "scored", "verdict"]
+               "bp2_published", "bp2_overlap", "bp2_distance", "expected", "basis", "scored", "breakpoints_scored", "verdict"]
 
 
 class Params:
     def __init__(self, args):
         for key in ("min_identity", "min_block", "min_contig", "min_segment", "max_jump", "call_fraction",
-                    "min_background", "min_interior"):
+                    "min_background", "min_interior", "flank_window"):
             setattr(self, key, getattr(args, key))
 
 
@@ -101,7 +104,9 @@ def distance(point, lo, hi):
 
 
 def call_unit(unit, chrom_units, blocks, p):
+    """Call one unit: its interior's strand against the flanks next to the units, on the same query sequence."""
     outer = (min(u["bp1_start"] for u in chrom_units), max(u["bp2_end"] for u in chrom_units))
+    windows = ((max(0, outer[0] - p.flank_window), outer[0]), (outer[1], outer[1] + p.flank_window))
     lo, hi = unit["bp1_end"], unit["bp2_start"]
     res = {"unit": unit["unit"], "chromosome": unit["chromosome"], "main_query": "", "interior_bp": 0,
            "interior_other_bp": 0, "background_bp": 0, "background_strand": "", "opposite_fraction": "",
@@ -109,14 +114,14 @@ def call_unit(unit, chrom_units, blocks, p):
            "bp1_published": "{}-{}".format(unit["bp1_start"], unit["bp1_end"]),
            "bp2_published": "{}-{}".format(unit["bp2_start"], unit["bp2_end"]), "bp1_observed": "", "bp2_observed": "",
            "bp1_overlap": "", "bp2_overlap": "", "bp1_distance": "", "bp2_distance": ""}
-    interior, background = collections.Counter(), collections.defaultdict(collections.Counter)
+    interior, flanks = collections.Counter(), collections.defaultdict(collections.Counter)
     for b in blocks:
         inside = pafkit.overlap(b["ts"], b["te"], lo, hi)
         if inside:
             interior[(b["qname"], b["strand"])] += inside
-        outside = (b["te"] - b["ts"]) - pafkit.overlap(b["ts"], b["te"], *outer)
-        if outside > 0:
-            background[b["qname"]][b["strand"]] += outside
+        near = sum(pafkit.overlap(b["ts"], b["te"], a, z) for a, z in windows)
+        if near:
+            flanks[b["qname"]][b["strand"]] += near
     per_query = collections.Counter()
     for (qname, _), bp in interior.items():
         per_query[qname] += bp
@@ -124,14 +129,18 @@ def call_unit(unit, chrom_units, blocks, p):
         res["reason"] = "nothing aligned in the interior"
         return res
     main = per_query.most_common(1)[0][0]
-    bg = background.get(main, collections.Counter())
+    bg = flanks.get(main, collections.Counter())
     res.update(main_query=main, interior_bp=per_query[main], interior_other_bp=sum(per_query.values()) - per_query[main],
                background_bp=sum(bg.values()))
     if per_query[main] < p.min_interior:
         res["reason"] = "under {:,} bp aligned in the interior".format(p.min_interior)
         return res
     if sum(bg.values()) < p.min_background:
-        res["reason"] = "the interior's sequence has under {:,} bp outside the units (flanks on other sequences)".format(p.min_background)
+        res["reason"] = ("the interior's sequence has under {:,} bp aligned within {:,} bp of the units "
+                         "(flanks on other sequences)".format(p.min_background, p.flank_window))
+        return res
+    if bg["+"] == bg["-"]:
+        res["reason"] = "the flanks are on both strands equally"
         return res
     strand = max(bg, key=bg.get)
     other = "-" if strand == "+" else "+"
@@ -146,13 +155,15 @@ def call_unit(unit, chrom_units, blocks, p):
         res["reason"] = "mixed strands inside"
         return res
     segs = [s for s in segments([b for b in blocks if b["qname"] == main], p.max_jump) if s["aligned_bp"] >= p.min_segment]
-    span = [s for s in segs if s["strand"] == other and pafkit.overlap(s["ts"], s["te"], lo, hi) > 0]
+    # a segment belongs to this unit's inverted stretch only if most of it lies inside the unit
+    span = [s for s in segs if s["strand"] == other and 2 * pafkit.overlap(s["ts"], s["te"], lo, hi) >= s["te"] - s["ts"]]
     if not span:
         res["reason"] = "no inverted segment of {:,} bp or more".format(p.min_segment)
         res["bp1_overlap"] = res["bp2_overlap"] = "unresolved"
         return res
     start, end = min(s["ts"] for s in span), max(s["te"] for s in span)
     others = [s for s in segs if s not in span]
+    # the nearest other segment ending before the stretch, and starting after it, bound the breakpoints
     before = max((s["te"] for s in others if s["te"] <= start), default=None)
     after = min((s["ts"] for s in others if s["ts"] >= end), default=None)
     res.update(inverted_start=start, inverted_end=end, bp1_distance=distance(start, unit["bp1_start"], unit["bp1_end"]),
@@ -170,7 +181,7 @@ def call_unit(unit, chrom_units, blocks, p):
     return res
 
 
-def verdict(expected, call, bp1, bp2):
+def verdict(expected, call, bp1, bp2, breakpoints_scored=True):
     if not expected:
         return "no expectation"
     if expected not in ("inverted", "normal"):
@@ -179,9 +190,9 @@ def verdict(expected, call, bp1, bp2):
         return "unresolved"
     if call != expected:
         return "disagree"
-    if call == "inverted" and "no" in (bp1, bp2):
+    if call == "inverted" and breakpoints_scored and "no" in (bp1, bp2):
         return "disagree: breakpoint"
-    if call == "inverted" and "unresolved" in (bp1, bp2):
+    if call == "inverted" and breakpoints_scored and "unresolved" in (bp1, bp2):
         return "agree; a breakpoint could not be placed"
     return "agree"
 
@@ -263,12 +274,16 @@ def agrees(query_label, target_label):
 
 # ---------------------------------------------------------------- across runs
 
-def apply_expectations(inversions, expected, preset):
+def apply_expectations(inversions, expected, preset, breakpoint_species):
+    """Breakpoints are scored only for the species Supplementary file 4 was measured on (YH): its caption says the
+    intervals come from alignments of that species to GT3a. Other assemblies' breakpoints are reported."""
     for res in inversions:
         exp = expected.get((res["assembly"], res["unit"]), {})
         scored = exp.get("scored") == "yes" and res["preset"] == preset
+        on_source = res["assembly"].startswith(breakpoint_species + "_")
         res.update(expected=exp.get("expected", ""), basis=exp.get("basis", ""), scored="yes" if scored else "no",
-                   verdict=verdict(exp.get("expected", ""), res["call"], res["bp1_overlap"], res["bp2_overlap"]))
+                   breakpoints_scored="yes" if on_source else "no",
+                   verdict=verdict(exp.get("expected", ""), res["call"], res["bp1_overlap"], res["bp2_overlap"], on_source))
 
 
 def outliers(chromosomes, subset_runs, runs_of_preset, drop, ratio):
@@ -293,6 +308,12 @@ def outliers(chromosomes, subset_runs, runs_of_preset, drop, ratio):
             if why:
                 flags.append({"run": c["run"], "label": label, "why": "; ".join(why)})
     return sorted(flags, key=lambda f: (f["run"], int(pafkit.label_number(f["label"]))))
+
+
+def outlier_runs(rows, preset):
+    """Forward runs of the preset, without the supplementary haplotig, which covers one chromosome by design."""
+    return {r["run"] for r in rows if r["direction"] == "forward" and r["preset"] == preset
+            and r["query_id"] not in pafkit.SUPPLEMENTARY}
 
 
 def reciprocity(results, ref_labels):
@@ -339,11 +360,11 @@ def write_report(path, version, p, inversions, chromosomes, flags, recip, manife
              "## Known features (scored on the subset): {}".format(status(scored, failed)), "",
              "{} scored units: {} agree, {} disagree, {} unresolved.".format(
                  len(scored), sum(r["verdict"].startswith("agree") for r in scored), len(failed), len(unresolved)), "",
-             "| assembly | unit | expected | call | other strand | breakpoint 1 (observed; published) | breakpoint 2 | verdict |",
-             "|---|---|---|---|---|---|---|---|"]
+             "| assembly | unit | expected | call | other strand | breakpoint 1 (observed; published) | breakpoint 2 | breakpoints scored | verdict |",
+             "|---|---|---|---|---|---|---|---|---|"]
     for r in scored:
         lines.append("| {assembly} | {unit} | {expected} | {call} | {opposite_fraction} | {bp1_observed} ({bp1_overlap}); "
-                     "{bp1_published} | {bp2_observed} ({bp2_overlap}); {bp2_published} | {verdict} |".format(**r))
+                     "{bp1_published} | {bp2_observed} ({bp2_overlap}); {bp2_published} | {breakpoints_scored} | {verdict} |".format(**r))
     others = [r for r in inversions if r["scored"] != "yes" and r["preset"] == preset]
     shown = [r for r in others if not r["verdict"].startswith("agree") and r["verdict"] != "no expectation"]
     lines += ["", "## Reported, not scored", "",
@@ -413,7 +434,10 @@ def parse_args(argv):
     parser.add_argument("--min-segment", type=int, default=100000)
     parser.add_argument("--max-jump", type=int, default=1000000)
     parser.add_argument("--call-fraction", type=float, default=0.80)
-    parser.add_argument("--min-background", type=int, default=1000000)
+    parser.add_argument("--min-background", type=int, default=500000)
+    parser.add_argument("--flank-window", type=int, default=2000000)
+    parser.add_argument("--breakpoint-species", default="YH",
+                        help="the species whose breakpoints are scored against Supplementary file 4 (default: %(default)s)")
     parser.add_argument("--min-interior", type=int, default=100000)
     parser.add_argument("--coverage-drop", type=float, default=0.05)
     parser.add_argument("--divergence-ratio", type=float, default=2.0)
@@ -457,9 +481,9 @@ def main(argv=None, deps=None, now=None):
             results = list(pool.map(summarize_run, *zip(*tasks)))
     chromosomes = [c for r in results for c in r["chromosomes"]]
     inversions = [i for r in results for i in r["inversions"]]
-    apply_expectations(inversions, expected, args.preset)
+    apply_expectations(inversions, expected, args.preset, args.breakpoint_species)
     subset = {a for (a, _), e in expected.items() if e["scored"] == "yes"}
-    runs_of_preset = {r["run"] for r in rows if r["direction"] == "forward" and r["preset"] == args.preset}
+    runs_of_preset = outlier_runs(rows, args.preset)
     subset_runs = {r["run"] for r in rows if r["run"] in runs_of_preset and r["query_id"] in subset}
     flags = outliers(chromosomes, subset_runs, runs_of_preset, args.coverage_drop, args.divergence_ratio)
     recip = reciprocity(results, ref_labels)

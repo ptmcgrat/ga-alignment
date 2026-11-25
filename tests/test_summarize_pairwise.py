@@ -18,7 +18,9 @@ import summarize_pairwise as sp  # noqa: E402
 MB = 1_000_000
 L = 40 * MB
 P = SimpleNamespace(min_identity=0.30, min_block=10_000, min_contig=2 * MB, min_segment=100_000, max_jump=MB,
-                    call_fraction=0.80, min_background=MB, min_interior=100_000)
+                    call_fraction=0.80, min_background=500_000, min_interior=100_000, flank_window=2 * MB)
+UNIT20A = {"unit": "20a", "chromosome": "LG20", "bp1_start": 19_600_000, "bp1_end": 19_620_000, "bp2_start": 29_680_000, "bp2_end": 29_700_000}
+UNIT20B = {"unit": "20b", "chromosome": "LG20", "bp1_start": 29_680_000, "bp1_end": 29_700_000, "bp2_start": 33_170_000, "bp2_end": 33_250_000}
 UNIT9 = {"unit": "9", "chromosome": "LG9", "bp1_start": 14 * MB, "bp1_end": 14_100_000, "bp2_start": 30 * MB, "bp2_end": 30_200_000}
 UNIT11A = {"unit": "11a", "chromosome": "LG11", "bp1_start": 8 * MB, "bp1_end": 8_100_000, "bp2_start": 18 * MB, "bp2_end": 18 * MB}
 UNIT11B = {"unit": "11b", "chromosome": "LG11", "bp1_start": 18 * MB, "bp1_end": 18 * MB, "bp2_start": 30 * MB, "bp2_end": 30_100_000}
@@ -61,8 +63,13 @@ class Calls(unittest.TestCase):
         self.assertEqual(self.call(pieces([(0, L, "+", fwd)]))["call"], "normal")
 
     def test_mixed_strands_are_unresolved(self):
-        r = self.call(pieces([(0, 22 * MB, "+", fwd), (22 * MB, L, "-", inv(22 * MB, L))]))
+        r = self.call(pieces([(0, 22 * MB, "+", fwd), (22 * MB, 30_200_000, "-", inv(22 * MB, 30_200_000)),
+                              (30_200_000, L, "+", fwd)]))      # flanks agree; half the interior on each strand
         self.assertEqual((r["call"], r["reason"]), ("unresolved", "mixed strands inside"))
+
+    def test_flanks_split_evenly_are_unresolved(self):
+        r = self.call(pieces([(0, 22 * MB, "+", fwd), (22 * MB, L, "-", inv(22 * MB, L))]))
+        self.assertEqual((r["call"], r["reason"]), ("unresolved", "the flanks are on both strands equally"))
 
     def test_interior_on_another_sequence_is_unresolved(self):
         blocks = pieces([(0, 14 * MB, "+", fwd), (30_300_000, L, "+", fwd)]) + \
@@ -85,6 +92,40 @@ class Calls(unittest.TestCase):
         self.assertEqual((a["call"], a["bp2_observed"], a["bp2_overlap"]), ("inverted", "17900000-18100000", "yes"))
         self.assertEqual((b["call"], b["bp1_observed"], b["bp1_overlap"]), ("inverted", "17900000-18100000", "yes"))
 
+    def test_a_misplaced_flank_does_not_outvote_the_neighbours(self):
+        # YH's LG20: reference 0-17.4 Mb sits at the start on "+"; 20a and 20b are each "+" between "-" neighbours
+        blocks = pieces([(0, 17_400_000, "+", fwd),
+                         (33_270_000, 38_800_000, "-", lambda x: 18 * MB + (38_800_000 - x)),
+                         (29_700_000, 33_250_000, "+", lambda x: 23_600_000 + (x - 29_700_000)),
+                         (19_620_000, 29_680_000, "+", lambda x: 27_200_000 + (x - 19_620_000)),
+                         (18_650_000, 19_620_000, "-", lambda x: 37_300_000 + (19_620_000 - x))])
+        units = (UNIT20A, UNIT20B)
+        a, b = self.call(blocks, UNIT20A, units), self.call(blocks, UNIT20B, units)
+        self.assertEqual((a["call"], a["background_strand"], a["bp1_overlap"], a["bp2_overlap"]), ("inverted", "-", "yes", "yes"))
+        self.assertEqual((b["call"], b["bp1_overlap"], b["bp2_overlap"]), ("inverted", "yes", "yes"))
+
+    def test_a_segment_reaching_slightly_into_a_unit_is_not_absorbed(self):
+        unit_a = dict(UNIT11A, bp2_start=17_970_000, bp2_end=18_010_000)
+        unit_b = dict(UNIT11B, bp1_start=17_970_000, bp1_end=18_010_000)
+        blocks = pieces([(0, 8 * MB, "+", fwd), (8_200_000, 17_900_000, "-", inv(8_200_000, 17_900_000)),
+                         (17_965_000, 29_900_000, "-", inv(17_965_000, 29_900_000)), (30_200_000, L, "+", fwd)])
+        a = self.call(blocks, unit_a, (unit_a, unit_b))      # 11b's segment starts 5 kb inside 11a
+        self.assertEqual((a["call"], a["inverted_end"], a["bp2_observed"]), ("inverted", 17_900_000, "17900000-17965000"))
+
+    def test_breakpoints_are_scored_only_for_the_source_species(self):
+        rows = [{"assembly": "YH_A", "unit": "9", "preset": "asm5", "call": "inverted", "bp1_overlap": "no", "bp2_overlap": "yes"},
+                {"assembly": "DT_B", "unit": "9", "preset": "asm5", "call": "inverted", "bp1_overlap": "no", "bp2_overlap": "yes"}]
+        expected = {(a, "9"): {"expected": "inverted", "scored": "yes", "basis": ""} for a in ("YH_A", "DT_B")}
+        sp.apply_expectations(rows, expected, "asm5", "YH")
+        self.assertEqual([(r["breakpoints_scored"], r["verdict"]) for r in rows],
+                         [("yes", "disagree: breakpoint"), ("no", "agree")])
+
+    def test_the_haplotig_is_left_out_of_outliers(self):
+        rows = [{"run": "A.asm5", "direction": "forward", "preset": "asm5", "query_id": "A"},
+                {"run": "YH_LG10Y.asm5", "direction": "forward", "preset": "asm5", "query_id": "YH_LG10Y"},
+                {"run": "A.asm5.reverse", "direction": "reverse", "preset": "asm5", "query_id": "REF"}]
+        self.assertEqual(sp.outlier_runs(rows, "asm5"), {"A.asm5"})
+
     def test_kumar_filters(self):
         keep = pieces([(0, 3 * MB, "+", fwd)])
         low = [block("Q", 0, MB, "+", "R", 3 * MB, 4 * MB, ident=0.2)]
@@ -101,6 +142,7 @@ class Calls(unittest.TestCase):
         self.assertEqual(sp.verdict("normal", "unresolved", "", ""), "unresolved")
         self.assertEqual(sp.verdict("heterozygous", "inverted", "", ""), "not compared (heterozygous)")
         self.assertEqual(sp.verdict("", "normal", "", ""), "no expectation")
+        self.assertEqual(sp.verdict("inverted", "inverted", "no", "yes", breakpoints_scored=False), "agree")
 
 
 class CommandLine(unittest.TestCase):

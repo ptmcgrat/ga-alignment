@@ -32,8 +32,10 @@ def simulate(target, start, ops):
         else:
             cigar.append([op, n])
     for kind, value in ops:
-        if kind == "=":
-            seg += target[t:t + value]; cs.append(":%d" % value); add("M", value); t += value; matches += value; block += value
+        if kind == "=":                                   # N facing N stays in the run but is not a residue match
+            n_here = target[t:t + value].count(b"N")
+            seg += target[t:t + value]; cs.append(":%d" % value); add("M", value); t += value
+            matches += value - n_here; block += value - n_here; nn += n_here
         elif kind == "X":
             seg += value; cs.append("*%s%s" % (chr(target[t]).lower(), value.decode().lower())); add("M", 1); t += 1; block += 1
         elif kind == "N":
@@ -61,13 +63,15 @@ class StandIn(unittest.TestCase):
         seg1, cs1, cg1, te1, m1, b1, n1 = simulate(target["T1"], 100, OPS)
         seg2, cs2, cg2, te2, m2, b2, n2 = simulate(target["T2"], 500, OPS)
         seg4, cs4, cg4, te4, m4, b4, n4 = simulate(target["T1"], 1450, [("=", 50), ("N", b"ACGTA"), ("=", 95)])
+        seg5, cs5, cg5, te5, m5, b5, n5 = simulate(target["T1"], 1480, [("=", 60)])     # the same 5 Ns, copied
         query = {"Q1": DNA(50) + seg1 + DNA(70), "Q2": DNA(30) + pafkit.revcomp(seg2) + DNA(40),
-                 "Q3": target["T1"][2000:2100] + DNA(400), "Q4": DNA(20) + seg4 + DNA(20)}
+                 "Q3": target["T1"][2000:2100] + DNA(400), "Q4": DNA(20) + seg4 + DNA(20), "Q5": DNA(10) + seg5 + DNA(10)}
         self.lines = [
             self.paf_line("Q1", query, 50, 50 + len(seg1), "+", "T1", target, 100, te1, m1, b1, "P", cg1, cs1, n1),
             self.paf_line("Q2", query, 30, 30 + len(seg2), "-", "T2", target, 500, te2, m2, b2, "P", cg2, cs2, n2),
             self.paf_line("Q3", query, 0, 100, "+", "T1", target, 2000, 2100, 100, 100, "S", "100M", ":100", 0),
             self.paf_line("Q4", query, 20, 20 + len(seg4), "+", "T1", target, 1450, te4, m4, b4, "P", cg4, cs4, n4),
+            self.paf_line("Q5", query, 10, 10 + len(seg5), "+", "T1", target, 1480, te5, m5, b5, "S", cg5, cs5, n5),
         ]
         self.target, self.query = target, query
         self.write_genome("REF", "GCA_1.1", target)
@@ -113,6 +117,11 @@ class Records(StandIn):
         self.assertEqual(self.check(self.lines[0]), [])
         self.assertEqual(self.check(self.lines[1]), [])
 
+    def test_n_facing_n_is_not_a_residue_match(self):
+        self.assertEqual(self.check(self.lines[4]), [])                     # ":60" over 5 Ns: columns 10 and 11 say 55
+        f = self.lines[4].split("\t")
+        self.assertEqual([k for k, _ in self.check("\t".join(f[:9] + ["60"] + f[10:]))], ["cs_counts"])
+
     def test_ambiguous_bases_are_left_out_of_column_11(self):
         self.assertEqual(self.check(self.lines[3]), [])                     # across 5 target Ns, nn:i:5
         self.assertEqual([k for k, _ in self.check(self.lines[3].replace("nn:i:5", "nn:i:0"))], ["cs_counts"])
@@ -140,7 +149,7 @@ class Records(StandIn):
         exact, sequences = cp.check_run({"run": "r", "direction": "forward", "preset": "asm5", "query_id": "ASM",
                                          "target_id": "REF"}, str(self.base / "ASM.asm5.paf"),
                                         str(self.deps().locate("ASM")), str(self.deps().locate("REF")))
-        self.assertEqual((exact["records"], exact["ambiguous_nn"], exact["n_columns"]), (4, 5, 5))
+        self.assertEqual((exact["records"], exact["ambiguous_nn"], exact["n_columns"]), (5, 10, 10))
         for s in sequences:
             self.assertEqual(s["primary_bp"] + s["secondary_only_bp"] + s["n_bp"] + s["unaligned_bp"], s["length"])
         t2 = next(s for s in sequences if s["side"] == "target" and s["sequence"] == "T2")

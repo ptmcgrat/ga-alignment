@@ -6,11 +6,11 @@ For each run in <scratch>/pairwise/<version>/manifest.tsv that finished (exit st
   names and lengths   each query and target name exists in its genome, with the length the PAF gives,
                       and that length matches provenance.json
   coordinates         0 <= start < end <= length, on both sides
-  cs counts           the cs string spans exactly the record's target and query intervals, its matched bases
-                      equal column 10 (residue matches), and its columns minus the ambiguous bases minimap2 reports
-                      (the nn tag) equal column 11 (block length): column 11 leaves out ambiguous bases, such as the
-                      100-N runs that stand for assembly gaps. The N columns are also counted from the genomes and
-                      reported beside the nn total
+  cs counts           the cs string spans exactly the record's target and query intervals; its matched bases, less
+                      N facing N inside matched runs, equal column 10 (residue matches); and its columns minus the
+                      ambiguous bases minimap2 reports (the nn tag) equal column 11 (block length). Both columns leave
+                      out ambiguous bases, such as the 100-N runs that stand for assembly gaps. The N columns are also
+                      counted from the genomes and reported beside the nn total
   cs sequence         the cs string rebuilds the aligned stretch base for base: matched runs and substitutions
                       against both genomes, deletions against the target, insertions against the query
                       (the query reverse-complemented for '-' records); compared in upper case
@@ -65,12 +65,13 @@ def check_record(rec, query, target, query_prov, target_prov):
     segment = qseq[rec["qs"]:rec["qe"]]
     if rec["strand"] == "-":
         segment = pafkit.revcomp(segment)
-    t, q, matched, columns, n_columns, bad = rec["ts"], 0, 0, 0, 0, None
+    t, q, matched, columns, n_columns, n_matched, bad = rec["ts"], 0, 0, 0, 0, 0, None
     for kind, value in ops:
         if kind == ":":
             if bad is None and tseq[t:t + value] != segment[q:q + value]:
                 bad = "matched run differs at target {}".format(t)
-            n_columns += tseq.count(b"N", t, t + value)
+            n_here = tseq.count(b"N", t, t + value)      # N facing N: equal bases, but not a residue match
+            n_columns, n_matched = n_columns + n_here, n_matched + n_here
             t, q, matched, columns = t + value, q + value, matched + value, columns + value
         elif kind == "*":
             ref, alt = value
@@ -94,9 +95,10 @@ def check_record(rec, query, target, query_prov, target_prov):
     if t != rec["te"] or q != rec["qe"] - rec["qs"]:
         problems.append(("cs_counts", "cs spans target {} and query {} bp; the record {} and {}".format(
             t - rec["ts"], q, rec["te"] - rec["ts"], rec["qe"] - rec["qs"])))
-    elif matched != rec["matches"] or columns - rec["nn"] != rec["block"]:
-        problems.append(("cs_counts", "cs gives {} matches in {} columns, {} ambiguous (nn); columns 10 and 11 say {} and {}".format(
-            matched, columns, rec["nn"], rec["matches"], rec["block"])))
+    elif matched - n_matched != rec["matches"] or columns - rec["nn"] != rec["block"]:
+        problems.append(("cs_counts", "cs gives {} residue matches ({} in matched runs, {} of them N facing N) in {} columns, "
+                         "{} ambiguous (nn); columns 10 and 11 say {} and {}".format(
+                             matched - n_matched, matched, n_matched, columns, rec["nn"], rec["matches"], rec["block"])))
     if bad:
         problems.append(("cs_sequence", bad))
     if not rec["cg"]:

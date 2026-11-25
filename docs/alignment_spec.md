@@ -2,9 +2,9 @@
 
 **Project:** 2a, Alignment
 **Repository:** `ga-alignment` (`github.com/ptmcgrat/ga-alignment`)
-**Document version:** 0.8, 2026-11-24 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`)
+**Document version:** 0.9, 2026-11-24 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N)
 **Owner:** McGrath lab
-**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; all pairwise alignments done; gates 0 to 2 closed; the pairwise checks (zips `007` and `008`) run next
+**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; all pairwise alignments done; gates 0 to 2 closed; the pairwise checks (zips `007` to `009`) run next
 
 This is the single specification document of project 2a. It is always replaced whole. It records what the
 coordinator specification already fixes, and the methods the project has decided. Questions 1 and 2 were left to the
@@ -351,7 +351,7 @@ before the full run, relative to the same chromosome in the other assemblies.
 
 1. **Exact: 100%, or the output is not accepted.** Query and target names and lengths match their `provenance.json`; every
    panel assembly has a PAF; every `cs` string reproduces its aligned query segment and agrees with the CIGAR, its matched
-   bases equal column 10, and its columns minus the ambiguous bases (the `nn` tag) equal column 11, which leaves them out; every graph path
+   bases less N facing N equal column 10, and its columns minus the ambiguous bases (the `nn` tag) equal column 11, which leaves them out; every graph path
    spells its input (our own script, case-insensitive, differences reported with positions); one complete, forward, acyclic
    reference path per reference sequence; every output validates against its contract version (once defined).
 2. **Accounting:** every input base is aligned or in the graph, or listed as missing with a reason; our count from the GFA
@@ -361,9 +361,12 @@ before the full run, relative to the same chromosome in the other assemblies.
    where its individual was genotyped, otherwise its species', same sex first; the single LG11 genotype applies to 11a and 11b).
    Blocks: Kumar et al.'s four filters (primary; identity at least 30%; at least 10,000 bp; from sequences with at least
    2,000,000 bp of such blocks). A unit is inverted when at least 80% of its interior's aligned bases on its main sequence lie on
-   the strand opposite to that sequence's flanks, normal when at most 20% do, and otherwise unresolved; unresolved too when the
-   interior and the flanks lie on different sequences. An inverted unit's observed breakpoint intervals must overlap
-   Supplementary file 4's; the distance of the block ends from them is reported. Scored on the subset, 55 units: a disagreement
+   the strand opposite to that sequence's strand in the flanks next to the units (within 2 Mb before the first unit and after
+   the last on the chromosome, with at least 0.5 Mb aligned there), normal when at most 20% do, and otherwise unresolved;
+   unresolved too when the interior and the flanks lie on different sequences. A segment belongs to a unit's inverted stretch
+   only if most of it lies inside the unit. For YH, whose alignments Supplementary file 4 came from (its caption), an inverted
+   unit's observed breakpoint intervals must overlap the published ones; for the other assemblies they are reported, with the
+   distance of the block ends from the published intervals. Scored on the subset, 55 units: a disagreement
    sends the plan back to question 1; an unresolved unit is reported, not failed. Heterozygous and unknown states are not scored
    (`YH_YH1m`'s LG10, heterozygous in this male). Reported, not scored: the other 17 assemblies against the same expectations;
    `YH_LG10Y` on LG10 (expected normal: the X inverted, the Y normal); the reference's LG2 left arm; LG3; the short chromosomes
@@ -405,6 +408,9 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | 2026-11-24 | `asm5` confirmed for all 24, after the comparison on `YH_YH1m` (decided before the bulk runs; recorded here) | `asm10`'s additional alignment is about 7% divergent (section 4) |
 | 2026-11-24 | Known features scored as in section 5: Kumar et al.'s four block filters; the 80% strand rule; breakpoint intervals scored by overlap with Supplementary file 4 | the method of Kumar et al.'s Version of Record; real blocks end short of breakpoints, which lie in repeats (`YH_YH1m`, LG9) |
 | 2026-11-24 | Expected states from Supplementary file 2; `YH_YH1m`'s LG10 not scored; DT's LG11 scored as both 11a and 11b | genotypes for six of our individuals and all eight species; LG10 is XY in YH; LG11 is one genotype in Supplementary file 2 |
+| 2026-11-24 | Inversion calls take the background strand from the flanks next to the units (2 Mb on each side, at least 0.5 Mb aligned there) instead of the whole chromosome; a segment joins a unit's inverted stretch only if most of it lies inside the unit. Changed after the first results (section 8) | the whole-chromosome rule let misplaced terminal pieces of up to 17.4 Mb outvote the true neighbours (YH and `MC_MC2f` on LG20, `YH_YH7f` on LG9); reading the immediate flanks is how a dot plot is read. Previewed on the real segments: 55 of 55 scored units agree, at 1, 2 and 5 Mb windows alike |
+| 2026-11-24 | Breakpoints scored against Supplementary file 4 only for YH; reported for the other assemblies. Changed after the first results | the table's caption: the intervals were calculated from alignments of YH to GT3a; DT's first LG9 breakpoint lies 0.37 Mb from YH's in all three DT assemblies |
+| 2026-11-24 | Breakpoint bounds stay as written in zip `007`; a proposed clipping of flank segments that overlap an inverted stretch was withdrawn | previewed on the real segments, it moved `YH_YH2f`'s first LG9 breakpoint out of the published interval, which it had matched |
 | 2026-11-24 | Supplementary files 4 and 2 kept in `published/` as recorded inputs, each with its source and sha256, and pinned by `tests/test_published.py` | the checks read recorded inputs, not numbers in code; `data/` is kept out of the repository by its `.gitignore` (data lives under the data root) |
 | 2026-11-24 | Soft-masking is not an input | Minigraph-Cactus ignores it (its FAQ); minimap2 aligns masked sequence (89.5% of the reference covered on `YH_YH1m`, of which only 68% is upper case) |
 | 2026-11-19 | Pairwise: minimap2's default secondary alignments, every record kept; the reference indexed in each run; PAFs in scratch until a data-root folder exists | the student's decision; a saved index would fix one preset's indexing parameters (minimap2 README) |
@@ -421,7 +427,8 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | Readers and validators for PAF and GFA, and coordinate-frame conversions, to be added to the common library by the coordinator once the fields are agreed | before first integration |
 | How chromosomes are anchored across assemblies given mixed naming and submitter-specific LG labels (section 2): tested by the pairwise alignments (section 4), with project 2b | no |
 | A shared place for the published tables, if project 2b needs them too (coordinator) | no |
-| `YH_YH1m`'s LG9 join (section 2): to project 2b through the coordinator, with the checks' results | no |
+| Misplaced terminal pieces, each at the start of a chromosome on "+" although it belongs at the far end next to its reference neighbour: `YH_YH1m` LG9 (reference 0–6.2 Mb), `YH_YH7f` LG9 (0–9.7 Mb), and LG20 of `YH_YH1m`, `YH_YH2f`, `YH_YH7f` and `MC_MC2f` (0–17.4 Mb). The identical placement in four Georgia Tech chromosome builds suggests how they were built, not biology: to project 2b through the coordinator | no |
+| DT's first LG9 breakpoint, 0.37 Mb from YH's in all three DT assemblies; `YH_YH7f`'s first LG9 breakpoint, where flank and inverted segments overlap (14.71–14.94 Mb) around the published interval; `CV_CV4f`'s LG20, normal on 20a and unresolved on 20b against CV's 26 of 26 inverted: to project 2b | no |
 | Note for the owner: the Version of Record's figure captions swap the YH sexes (section 2) | no |
 | `MZ_UMD2025`'s B chromosome (section 2): its alignments may look like rearrangements; projects 2b and 3 should know (coordinator) | no |
 | The briefing says mzebra has no docker or singularity; Apptainer runs there from a project conda env (project 1's recipe). A correction for the coordinator | no |
@@ -453,6 +460,15 @@ project 2b through the coordinator; deciding between assembly error and biology 
   differences were 100, 200 or 300 bases, NCBI's 100-N runs for assembly gaps. Every `cs` string rebuilt both genomes base
   for base and agreed with its CIGAR; the reference has no letters other than A, C, G, T and N. The same zip's two tables
   were left out of git by `.gitignore` (`data/`), so the summary could not start. Zip `008` fixes both; the checks rerun.
+- Zip `008`'s check run (`checks/20261125-030421`): 24 of 28 runs passed every exact check; the ambiguous bases counted by
+  minimap2's `nn` tags (2,474,206) equal the N columns counted from the genomes. The four failures were N facing N inside
+  matched runs, which column 10 does not count as residue matches, in three Georgia Tech assemblies aligned to the Georgia
+  Tech reference.
+- Zip `008`'s summary (`summary/20261125-030423`): 50 of 55 scored units agreed. The five disagreements: `YH_YH1m` and
+  `YH_YH2f` on 20a and 20b, from the whole-chromosome background rule; and `DT_SAMEA123396444`'s first LG9 breakpoint.
+  `YH_YH1m`'s breakpoint intervals equal Supplementary file 4's to the base on 2, 11a, and the first of 9 and 13. The Y
+  haplotig `YH_LG10Y` is normal on LG10 (other strand 0.009), as the genotypes imply (the X inverted, the Y normal). Zip
+  `009` changes the rules (section 6, owner to be told); the checks rerun.
 - 2026-11-18: an environment zip mistakenly numbered `alignment_001` was committed here (5d9f9e2) and reverted (f60fbea); the
   same content comes as `004`. The same zip had been pushed to `ga-repeats` by mistake (f15e6dc) and was reverted there.
 - The repeat annotation (if it is an input) is not yet produced. Nothing is ready to integrate.
@@ -476,7 +492,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
   and `panel_chromosomes_P1.tsv` from the coordinator repository, and the papers and pages of the briefing, Part D, **uploaded by the
   student as PDFs** (items 1–8 required, 9 and 10 may follow).
 - Python 3.9 is the minimum for code that uses the common library.
-- **`VERSION`** holds the number of the last zip applied, three digits (`008`). Every zip's instructions start by checking `pwd`,
+- **`VERSION`** holds the number of the last zip applied, three digits (`009`). Every zip's instructions start by checking `pwd`,
   `git remote -v` and `VERSION` before anything is copied.
 - **This project on mzebra:** conda env `ga-alignment` (section 6); Cactus image `~/containers/cactus_v4.0.0.sif` (the v3.3.0 image may be removed), with the
   pull cache and tmp in `~/containers/cache` and `~/containers/tmp`, set per session (`.bashrc` is not edited); working space
