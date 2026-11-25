@@ -2,9 +2,9 @@
 
 **Project:** 2a, Alignment
 **Repository:** `ga-alignment` (`github.com/ptmcgrat/ga-alignment`)
-**Document version:** 0.9, 2026-11-24 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N)
+**Document version:** 0.10, 2026-11-24 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N; 0.10, 2026-11-24: the pairwise checks pass; gate 3 closed; the graph settings; the graph runner)
 **Owner:** McGrath lab
-**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; all pairwise alignments done; gates 0 to 2 closed; the pairwise checks (zips `007` to `009`) run next
+**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; pairwise alignments done and checked; gates 0 to 3 closed; the graph's chromosome runs (zip `010`) run next
 
 This is the single specification document of project 2a. It is always replaced whole. It records what the
 coordinator specification already fixes, and the methods the project has decided. Questions 1 and 2 were left to the
@@ -209,6 +209,24 @@ graph; whole genomes (decision 2026-10-26); all results in reference coordinates
 - **Outputs:** the full graph (`--gfa full`) is the `graph` deliverable. On the subset the clipped graph is also written, to
   measure what clipping would remove. Cactus's stats directory is kept with every run. `--validate` (new in 4.0.0) checks the
   output base for base against the inputs, alongside our own path check (section 5).
+- **Settings** (step 4, agreed 2026-11-24): `--reference MZ_NMK2024a`; `--refContigs` with its 22 linkage groups and
+  `--otherContig chrOther`, which lumps its 41 other sequences into one; `--gfa full clip` on the subset and `--gfa full` on
+  the full graph (`--gfa` alone gives the clip graph); `--validate`; Cactus's default chromosome-assignment thresholds (no
+  `--permissiveContigFilter`); the configuration's deletion filters as they are (`delFilter` 10 Mb, `delFilterThreshold`
+  0.01, `delFilterMaxRemove` 1 Mb, `delFilterMinSupport` 2, `delFilterQuerySizeThreshold` 2; in the clip graph
+  `delEdgeFilter` 10 Mb). The clip graph is written on the subset only, to measure what clipping removes and to check our
+  accounting against Cactus's `clipped-by-reference-contig.tsv`.
+- **Caps:** `taskset` confines a run to a CPU range; the per-step options (`--mgCores`, `--mapCores`, at most 6, `--consCores`,
+  `--indexCores`, and `--maxCores`) size each job; `--maxMemory` is the ceiling `--consRetainPages auto` sizes against. In
+  4.0.0, `--maxCores`, `--maxMemory` and `--maxDisk` limit what one job may request, not the run as a whole (its help). Runs
+  go under `nice -n 10` in `screen`.
+- **Runs:** in `GR_v1`, one folder per run holding its job store, working directory and outputs; after an interruption,
+  `--restart` resumes from the job store. Chromosome runs first (LG8, LG9, LG20), from per-chromosome FASTAs chosen by the
+  pairwise assignment, then one whole-genome run of the subset; `scripts/build_graph.py`.
+- **The full graph** (step 6) is built from scratch, not by adding genomes to the subset graph (`--inGFA`): only the minigraph
+  construction would be reused, since the alignment reruns for every genome; reusing the mappings needs `zipAlleles="0"`;
+  and construction is iterative in the input genomes, so the full graph would depend on the subset's order. Whether
+  `YH_LG10Y` joins the full graph is decided at step 6.
 - **Settings:** documented defaults. Two candidates for change, each decided from the pairwise results and recorded in
   section 6 with its reason: `--delFilter` (the reference's LG2) and `--permissiveContigFilter` (LG3). Every option is checked
   against the installed version's own help before it is used.
@@ -408,6 +426,8 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | 2026-11-24 | `asm5` confirmed for all 24, after the comparison on `YH_YH1m` (decided before the bulk runs; recorded here) | `asm10`'s additional alignment is about 7% divergent (section 4) |
 | 2026-11-24 | Known features scored as in section 5: Kumar et al.'s four block filters; the 80% strand rule; breakpoint intervals scored by overlap with Supplementary file 4 | the method of Kumar et al.'s Version of Record; real blocks end short of breakpoints, which lie in repeats (`YH_YH1m`, LG9) |
 | 2026-11-24 | Expected states from Supplementary file 2; `YH_YH1m`'s LG10 not scored; DT's LG11 scored as both 11a and 11b | genotypes for six of our individuals and all eight species; LG10 is XY in YH; LG11 is one genotype in Supplementary file 2 |
+| 2026-11-24 | Graph settings and caps as in section 4 (step 4) | agreed with the student after gate 3; options and defaults read from the 4.0.0 help and configuration |
+| 2026-11-24 | The full graph is built from scratch at step 6 | section 4: little is reused, reusing mappings needs `zipAlleles` off, and the result would depend on the subset |
 | 2026-11-24 | Inversion calls take the background strand from the flanks next to the units (2 Mb on each side, at least 0.5 Mb aligned there) instead of the whole chromosome; a segment joins a unit's inverted stretch only if most of it lies inside the unit. Changed after the first results (section 8) | the whole-chromosome rule let misplaced terminal pieces of up to 17.4 Mb outvote the true neighbours (YH and `MC_MC2f` on LG20, `YH_YH7f` on LG9); reading the immediate flanks is how a dot plot is read. Previewed on the real segments: 55 of 55 scored units agree, at 1, 2 and 5 Mb windows alike |
 | 2026-11-24 | Breakpoints scored against Supplementary file 4 only for YH; reported for the other assemblies. Changed after the first results | the table's caption: the intervals were calculated from alignments of YH to GT3a; DT's first LG9 breakpoint lies 0.37 Mb from YH's in all three DT assemblies |
 | 2026-11-24 | Breakpoint bounds stay as written in zip `007`; a proposed clipping of flank segments that overlap an inverted stretch was withdrawn | previewed on the real segments, it moved `YH_YH2f`'s first LG9 breakpoint out of the published interval, which it had matched |
@@ -427,6 +447,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | Readers and validators for PAF and GFA, and coordinate-frame conversions, to be added to the common library by the coordinator once the fields are agreed | before first integration |
 | How chromosomes are anchored across assemblies given mixed naming and submitter-specific LG labels (section 2): tested by the pairwise alignments (section 4), with project 2b | no |
 | A shared place for the published tables, if project 2b needs them too (coordinator) | no |
+| Whether `YH_LG10Y` joins the full graph | step 6 |
 | Misplaced terminal pieces, each at the start of a chromosome on "+" although it belongs at the far end next to its reference neighbour: `YH_YH1m` LG9 (reference 0–6.2 Mb), `YH_YH7f` LG9 (0–9.7 Mb), and LG20 of `YH_YH1m`, `YH_YH2f`, `YH_YH7f` and `MC_MC2f` (0–17.4 Mb). The identical placement in four Georgia Tech chromosome builds suggests how they were built, not biology: to project 2b through the coordinator | no |
 | DT's first LG9 breakpoint, 0.37 Mb from YH's in all three DT assemblies; `YH_YH7f`'s first LG9 breakpoint, where flank and inverted segments overlap (14.71–14.94 Mb) around the published interval; `CV_CV4f`'s LG20, normal on 20a and unresolved on 20b against CV's 26 of 26 inverted: to project 2b | no |
 | Note for the owner: the Version of Record's figure captions swap the YH sexes (section 2) | no |
@@ -469,6 +490,14 @@ project 2b through the coordinator; deciding between assembly error and biology 
   `YH_YH1m`'s breakpoint intervals equal Supplementary file 4's to the base on 2, 11a, and the first of 9 and 13. The Y
   haplotig `YH_LG10Y` is normal on LG10 (other strand 0.009), as the genotypes imply (the X inverted, the Y normal). Zip
   `009` changes the rules (section 6, owner to be told); the checks rerun.
+- Zip `009`'s checks pass (`checks/20261125-033145`, `summary/20261125-033146`): 28 of 28 runs pass every exact check; 55 of
+  55 scored units agree; 131 of 138 reported units agree. Of the 30 scored breakpoints (all YH), 8 observed intervals equal
+  Supplementary file 4's to the base and 25 inverted-stretch ends lie inside the published intervals; the other 5 lie up to
+  570 kb away. The findings for project 2b are drafted for the coordinator (section 7).
+- **Gate 3** (2026-11-24): question 12 named minigraph; corrected to Minigraph-Cactus, with the reasons recorded in section
+  6 (no builder comparison: the owner dropped it); completeness and accuracy mapped onto section 5's checks. Question 13:
+  the subgraph relation was right; what `--clip` and `--filter` remove was explained; `--filter` is not used. Question 14
+  explained: the job store and `--restart`, per-chromosome steps, and the resource options, confirmed in the 4.0.0 help.
 - 2026-11-18: an environment zip mistakenly numbered `alignment_001` was committed here (5d9f9e2) and reverted (f60fbea); the
   same content comes as `004`. The same zip had been pushed to `ga-repeats` by mistake (f15e6dc) and was reverted there.
 - The repeat annotation (if it is an input) is not yet produced. Nothing is ready to integrate.
@@ -492,7 +521,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
   and `panel_chromosomes_P1.tsv` from the coordinator repository, and the papers and pages of the briefing, Part D, **uploaded by the
   student as PDFs** (items 1–8 required, 9 and 10 may follow).
 - Python 3.9 is the minimum for code that uses the common library.
-- **`VERSION`** holds the number of the last zip applied, three digits (`009`). Every zip's instructions start by checking `pwd`,
+- **`VERSION`** holds the number of the last zip applied, three digits (`010`). Every zip's instructions start by checking `pwd`,
   `git remote -v` and `VERSION` before anything is copied.
 - **This project on mzebra:** conda env `ga-alignment` (section 6); Cactus image `~/containers/cactus_v4.0.0.sif` (the v3.3.0 image may be removed), with the
   pull cache and tmp in `~/containers/cache` and `~/containers/tmp`, set per session (`.bashrc` is not edited); working space
