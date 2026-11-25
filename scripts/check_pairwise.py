@@ -7,7 +7,10 @@ For each run in <scratch>/pairwise/<version>/manifest.tsv that finished (exit st
                       and that length matches provenance.json
   coordinates         0 <= start < end <= length, on both sides
   cs counts           the cs string spans exactly the record's target and query intervals, its matched bases
-                      equal column 10 (residue matches) and its total equals column 11 (block length)
+                      equal column 10 (residue matches), and its columns minus the ambiguous bases minimap2 reports
+                      (the nn tag) equal column 11 (block length): column 11 leaves out ambiguous bases, such as the
+                      100-N runs that stand for assembly gaps. The N columns are also counted from the genomes and
+                      reported beside the nn total
   cs sequence         the cs string rebuilds the aligned stretch base for base: matched runs and substitutions
                       against both genomes, deletions against the target, insertions against the query
                       (the query reverse-complemented for '-' records); compared in upper case
@@ -35,7 +38,8 @@ import pafkit  # noqa: E402
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_SCRATCH = Path.home() / "scratch" / "ga-alignment"
 KINDS = ["names_lengths", "coordinates", "cs_missing", "cs_counts", "cs_sequence", "cs_cigar"]
-EXACT_COLUMNS = ["run", "direction", "preset", "query_id", "target_id", "records"] + KINDS + ["status", "examples"]
+EXACT_COLUMNS = (["run", "direction", "preset", "query_id", "target_id", "records", "ambiguous_nn", "n_columns"]
+                 + KINDS + ["status", "examples"])
 ACCOUNT_COLUMNS = ["run", "side", "assembly", "sequences", "length", "primary_bp", "secondary_only_bp", "n_bp",
                    "unaligned_bp", "primary_fraction"]
 SEQ_COLUMNS = ["run", "side", "assembly", "sequence", "label", "length", "primary_bp", "secondary_only_bp", "n_bp",
@@ -61,33 +65,38 @@ def check_record(rec, query, target, query_prov, target_prov):
     segment = qseq[rec["qs"]:rec["qe"]]
     if rec["strand"] == "-":
         segment = pafkit.revcomp(segment)
-    t, q, matched, columns, bad = rec["ts"], 0, 0, 0, None
+    t, q, matched, columns, n_columns, bad = rec["ts"], 0, 0, 0, 0, None
     for kind, value in ops:
         if kind == ":":
             if bad is None and tseq[t:t + value] != segment[q:q + value]:
                 bad = "matched run differs at target {}".format(t)
+            n_columns += tseq.count(b"N", t, t + value)
             t, q, matched, columns = t + value, q + value, matched + value, columns + value
         elif kind == "*":
             ref, alt = value
             if bad is None and (tseq[t:t + 1] != ref or segment[q:q + 1] != alt):
                 bad = "substitution differs at target {}".format(t)
+            n_columns += ref == b"N" or alt == b"N"
             t, q, columns = t + 1, q + 1, columns + 1
         elif kind == "+":
             if bad is None and segment[q:q + len(value)] != value:
                 bad = "insertion differs at target {}".format(t)
+            n_columns += value.count(b"N")
             q, columns = q + len(value), columns + len(value)
         elif kind == "-":
             if bad is None and tseq[t:t + len(value)] != value:
                 bad = "deletion differs at target {}".format(t)
+            n_columns += value.count(b"N")
             t, columns = t + len(value), columns + len(value)
         else:
             t += value
+    rec["n_columns"] = n_columns
     if t != rec["te"] or q != rec["qe"] - rec["qs"]:
         problems.append(("cs_counts", "cs spans target {} and query {} bp; the record {} and {}".format(
             t - rec["ts"], q, rec["te"] - rec["ts"], rec["qe"] - rec["qs"])))
-    elif matched != rec["matches"] or columns != rec["block"]:
-        problems.append(("cs_counts", "cs gives {} matches in {} columns; columns 10 and 11 say {} and {}".format(
-            matched, columns, rec["matches"], rec["block"])))
+    elif matched != rec["matches"] or columns - rec["nn"] != rec["block"]:
+        problems.append(("cs_counts", "cs gives {} matches in {} columns, {} ambiguous (nn); columns 10 and 11 say {} and {}".format(
+            matched, columns, rec["nn"], rec["matches"], rec["block"])))
     if bad:
         problems.append(("cs_sequence", bad))
     if not rec["cg"]:
@@ -116,12 +125,14 @@ def check_run(row, paf, query_fasta, target_fasta):
     """Every exact check and the accounting for one run. Runs in a worker process; returns plain data."""
     query, target = pafkit.read_fasta(query_fasta), pafkit.read_fasta(target_fasta)
     query_prov, target_prov = pafkit.provenance_sequences(query_fasta), pafkit.provenance_sequences(target_fasta)
-    counts, examples, records = collections.Counter(), [], 0
+    counts, examples, records, ambiguous, n_columns = collections.Counter(), [], 0, 0, 0
     spans = {"q": (collections.defaultdict(list), collections.defaultdict(list)),
              "t": (collections.defaultdict(list), collections.defaultdict(list))}
     for rec in pafkit.read_paf(paf, keep_strings=True):
         records += 1
         problems = check_record(rec, query, target, query_prov, target_prov)
+        ambiguous += rec["nn"]
+        n_columns += rec.get("n_columns", 0)
         for kind in {k for k, _ in problems}:
             counts[kind] += 1
         for kind, detail in problems:
@@ -132,7 +143,8 @@ def check_run(row, paf, query_fasta, target_fasta):
             spans["q"][which][rec["qname"]].append((rec["qs"], rec["qe"]))
             spans["t"][which][rec["tname"]].append((rec["ts"], rec["te"]))
     exact = {"run": row["run"], "direction": row["direction"], "preset": row["preset"], "query_id": row["query_id"],
-             "target_id": row["target_id"], "records": records, "examples": " | ".join(examples)}
+             "target_id": row["target_id"], "records": records, "ambiguous_nn": ambiguous, "n_columns": n_columns,
+             "examples": " | ".join(examples)}
     exact.update({k: counts.get(k, 0) for k in KINDS})
     exact["status"] = "pass" if records and not any(counts.values()) else "FAIL"
     sequences = (account("query", row["query_id"], query, query_prov, *spans["q"], row["run"])
@@ -159,6 +171,8 @@ def write_report(path, version, exact, accounting, missing, preset):
     lines = ["# Exact and accounting checks ({})".format(version), "",
              "- runs checked: {}; passed every exact check: {}; failed: {}".format(len(exact), len(exact) - len(failed), len(failed)),
              "- records checked: {:,}".format(sum(e["records"] for e in exact)),
+             "- ambiguous bases in alignments: {:,} by minimap2's nn tags; {:,} N columns counted from the genomes".format(
+                 sum(e["ambiguous_nn"] for e in exact), sum(e["n_columns"] for e in exact)),
              "- panel assemblies without a forward {} PAF: {}".format(preset, ", ".join(missing) or "none"), ""]
     if failed:
         lines += ["## Failed runs", ""] + ["- **{}**: {}".format(e["run"], "; ".join(

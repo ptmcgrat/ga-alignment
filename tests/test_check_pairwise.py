@@ -21,8 +21,10 @@ DNA = lambda n: bytes(random.choice(b"ACGT") for _ in range(n))
 
 
 def simulate(target, start, ops):
-    """Apply edits to target[start:...]; return the query segment, cs, cg, target end, matches and block length."""
-    t, seg, cs, cigar, matches, block = start, bytearray(), [], [], 0, 0
+    """Apply edits to target[start:...]; return the query segment, cs, cg, target end, matches, block length (column 11)
+    and ambiguous bases (nn). An ("N", bases) edit aligns query bases to target Ns: minimap2 writes them as
+    substitutions, leaves them out of column 11 and counts them in nn."""
+    t, seg, cs, cigar, matches, block, nn = start, bytearray(), [], [], 0, 0, 0
 
     def add(op, n):
         if cigar and cigar[-1][0] == op:
@@ -34,11 +36,15 @@ def simulate(target, start, ops):
             seg += target[t:t + value]; cs.append(":%d" % value); add("M", value); t += value; matches += value; block += value
         elif kind == "X":
             seg += value; cs.append("*%s%s" % (chr(target[t]).lower(), value.decode().lower())); add("M", 1); t += 1; block += 1
+        elif kind == "N":
+            for base in value:
+                assert target[t:t + 1] == b"N"
+                seg.append(base); cs.append("*n%s" % chr(base).lower()); add("M", 1); t += 1; nn += 1
         elif kind == "I":
             seg += value; cs.append("+" + value.decode().lower()); add("I", len(value)); block += len(value)
         else:
             cs.append("-" + target[t:t + value].decode().lower()); add("D", value); t += value; block += value
-    return bytes(seg), "".join(cs), "".join("%d%s" % (n, op) for op, n in cigar), t, matches, block
+    return bytes(seg), "".join(cs), "".join("%d%s" % (n, op) for op, n in cigar), t, matches, block, nn
 
 
 OPS = [("=", 300), ("X", b"G"), ("=", 200), ("I", b"TTA"), ("=", 150), ("D", 7), ("=", 340)]
@@ -51,14 +57,17 @@ class StandIn(unittest.TestCase):
         self.root = Path(tmp.name)
         target = {"T1": DNA(3000), "T2": DNA(2000)}
         target["T2"] = target["T2"][:1700] + b"N" * 300
-        seg1, cs1, cg1, te1, m1, b1 = simulate(target["T1"], 100, OPS)
-        seg2, cs2, cg2, te2, m2, b2 = simulate(target["T2"], 500, OPS)
+        target["T1"] = target["T1"][:1500] + b"NNNNN" + target["T1"][1505:]
+        seg1, cs1, cg1, te1, m1, b1, n1 = simulate(target["T1"], 100, OPS)
+        seg2, cs2, cg2, te2, m2, b2, n2 = simulate(target["T2"], 500, OPS)
+        seg4, cs4, cg4, te4, m4, b4, n4 = simulate(target["T1"], 1450, [("=", 50), ("N", b"ACGTA"), ("=", 95)])
         query = {"Q1": DNA(50) + seg1 + DNA(70), "Q2": DNA(30) + pafkit.revcomp(seg2) + DNA(40),
-                 "Q3": target["T1"][2000:2100] + DNA(400)}
+                 "Q3": target["T1"][2000:2100] + DNA(400), "Q4": DNA(20) + seg4 + DNA(20)}
         self.lines = [
-            self.paf_line("Q1", query, 50, 50 + len(seg1), "+", "T1", target, 100, te1, m1, b1, "P", cg1, cs1),
-            self.paf_line("Q2", query, 30, 30 + len(seg2), "-", "T2", target, 500, te2, m2, b2, "P", cg2, cs2),
-            self.paf_line("Q3", query, 0, 100, "+", "T1", target, 2000, 2100, 100, 100, "S", "100M", ":100"),
+            self.paf_line("Q1", query, 50, 50 + len(seg1), "+", "T1", target, 100, te1, m1, b1, "P", cg1, cs1, n1),
+            self.paf_line("Q2", query, 30, 30 + len(seg2), "-", "T2", target, 500, te2, m2, b2, "P", cg2, cs2, n2),
+            self.paf_line("Q3", query, 0, 100, "+", "T1", target, 2000, 2100, 100, 100, "S", "100M", ":100", 0),
+            self.paf_line("Q4", query, 20, 20 + len(seg4), "+", "T1", target, 1450, te4, m4, b4, "P", cg4, cs4, n4),
         ]
         self.target, self.query = target, query
         self.write_genome("REF", "GCA_1.1", target)
@@ -71,9 +80,9 @@ class StandIn(unittest.TestCase):
             ["PW_v1", "ASM.asm5", "forward", "asm5", "ASM", "REF", "ASM.asm5.paf", "0"]) + "\n")
 
     @staticmethod
-    def paf_line(q, query, qs, qe, strand, t, target, ts, te, matches, block, tp, cg, cs):
+    def paf_line(q, query, qs, qe, strand, t, target, ts, te, matches, block, tp, cg, cs, nn):
         return "\t".join(map(str, [q, len(query[q]), qs, qe, strand, t, len(target[t]), ts, te, matches, block, 60,
-                                   "tp:A:" + tp, "de:f:0.01", "cg:Z:" + cg, "cs:Z:" + cs])) + "\n"
+                                   "nn:i:%d" % nn, "tp:A:" + tp, "de:f:0.01", "cg:Z:" + cg, "cs:Z:" + cs])) + "\n"
 
     def write_genome(self, assembly, accession, seqs):
         folder = self.root / "Genomes" / assembly / accession
@@ -104,6 +113,10 @@ class Records(StandIn):
         self.assertEqual(self.check(self.lines[0]), [])
         self.assertEqual(self.check(self.lines[1]), [])
 
+    def test_ambiguous_bases_are_left_out_of_column_11(self):
+        self.assertEqual(self.check(self.lines[3]), [])                     # across 5 target Ns, nn:i:5
+        self.assertEqual([k for k, _ in self.check(self.lines[3].replace("nn:i:5", "nn:i:0"))], ["cs_counts"])
+
     def test_a_wrong_substitution_is_caught(self):
         head, cs = self.lines[0].split("cs:Z:")
         i = cs.index("*") + 2                      # the query base of the substitution
@@ -127,7 +140,7 @@ class Records(StandIn):
         exact, sequences = cp.check_run({"run": "r", "direction": "forward", "preset": "asm5", "query_id": "ASM",
                                          "target_id": "REF"}, str(self.base / "ASM.asm5.paf"),
                                         str(self.deps().locate("ASM")), str(self.deps().locate("REF")))
-        self.assertEqual(exact["records"], 3)
+        self.assertEqual((exact["records"], exact["ambiguous_nn"], exact["n_columns"]), (4, 5, 5))
         for s in sequences:
             self.assertEqual(s["primary_bp"] + s["secondary_only_bp"] + s["n_bp"] + s["unaligned_bp"], s["length"])
         t2 = next(s for s in sequences if s["side"] == "target" and s["sequence"] == "T2")

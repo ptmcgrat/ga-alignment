@@ -2,7 +2,7 @@
 """The known-feature and measured checks of spec section 5, for every PAF of a pairwise version folder.
 
 Inversions (forward runs, the reference as target), for each unit of Supplementary file 4 (2, 9, 10, 11a, 11b, 13,
-20a, 20b; data/kumar2025_suppfile4_breakpoints.tsv):
+20a, 20b; published/kumar2025_suppfile4_breakpoints.tsv):
   blocks      Kumar et al.'s four filters: primary records only; identity (column 10 / column 11) >= 0.30;
               block length (column 11) >= 10,000 bp; and no block from a query sequence with under 2,000,000 bp
               of such blocks in total
@@ -16,7 +16,7 @@ Inversions (forward runs, the reference as target), for each unit of Supplementa
               the last other segment before the inverted segments to the first of them, and from the last of them
               to the next other segment. Scored by overlap with Supplementary file 4's interval; the distance of
               the inverted block ends from that interval is reported
-  expected    data/expected_inversions.tsv (from Supplementary file 2). Scored rows decide the known-feature
+  expected    published/expected_inversions.tsv (from Supplementary file 2). Scored rows decide the known-feature
               check: it fails only on a disagreement; unresolved units are reported, not failed
 Measured, per forward run and reference sequence: coverage by primary records, BLAST-like identity (column 10 /
 column 11, which counts gap bases), gap-compressed divergence (the de tag, weighted by aligned length), bases on
@@ -321,14 +321,21 @@ def status(scored, failed):
     return "FAIL" if failed else "PASS" if scored else "NOTHING SCORED (check --preset and --expected)"
 
 
-def write_report(path, version, p, inversions, chromosomes, flags, recip, manifest_rows, preset):
+def sha256(path):
+    import hashlib
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def write_report(path, version, p, inversions, chromosomes, flags, recip, manifest_rows, preset, tables=()):
     scored = [r for r in inversions if r["scored"] == "yes"]
     failed = [r for r in scored if r["verdict"].startswith("disagree")]
     unresolved = [r for r in scored if r["verdict"] == "unresolved"]
     lines = ["# Known features and measured checks ({})".format(version), "",
              "Blocks: primary, identity >= {}, length >= {:,} bp, from sequences with >= {:,} bp of such blocks. Calls: "
              ">= {:.0%} of the interior on the other strand. Segments >= {:,} bp, split at jumps > {:,} bp.".format(
-                 p.min_identity, p.min_block, p.min_contig, p.call_fraction, p.min_segment, p.max_jump), "",
+                 p.min_identity, p.min_block, p.min_contig, p.call_fraction, p.min_segment, p.max_jump), ""]
+    lines += ["Tables used: " + "; ".join("{} (sha256 {})".format(Path(t).name, sha256(t)) for t in tables), ""]
+    lines += [
              "## Known features (scored on the subset): {}".format(status(scored, failed)), "",
              "{} scored units: {} agree, {} disagree, {} unresolved.".format(
                  len(scored), sum(r["verdict"].startswith("agree") for r in scored), len(failed), len(unresolved)), "",
@@ -398,8 +405,8 @@ def parse_args(argv):
     parser.add_argument("--version", default="PW_v1", help="the pairwise version folder (default: %(default)s)")
     parser.add_argument("--scratch", type=Path, default=DEFAULT_SCRATCH, help="the project's scratch folder")
     parser.add_argument("--preset", default="asm5", help="the preset whose forward runs are scored (default: %(default)s)")
-    parser.add_argument("--units", type=Path, default=REPO / "data" / "kumar2025_suppfile4_breakpoints.tsv")
-    parser.add_argument("--expected", type=Path, default=REPO / "data" / "expected_inversions.tsv")
+    parser.add_argument("--units", type=Path, default=REPO / "published" / "kumar2025_suppfile4_breakpoints.tsv")
+    parser.add_argument("--expected", type=Path, default=REPO / "published" / "expected_inversions.tsv")
     parser.add_argument("--min-identity", type=float, default=0.30)
     parser.add_argument("--min-block", type=int, default=10000)
     parser.add_argument("--min-contig", type=int, default=2000000)
@@ -464,7 +471,8 @@ def main(argv=None, deps=None, now=None):
     pafkit.write_tsv(outdir / "outliers.tsv", ["run", "label", "why"], flags)
     pafkit.write_tsv(outdir / "reciprocity.tsv", ["assembly", "sequence", "label", "forward_bp", "reverse_bp",
                                                  "difference_bp"], recip)
-    failed = write_report(outdir / "report.md", read_version(), p, inversions, chromosomes, flags, recip, manifest_rows, args.preset)
+    failed = write_report(outdir / "report.md", read_version(), p, inversions, chromosomes, flags, recip, manifest_rows,
+                          args.preset, tables=(args.units, args.expected))
     scored = [i for i in inversions if i["scored"] == "yes"]
     print("Results written to {}".format(outdir))
     print("Known features: {} ({} scored units: {} agree, {} disagree, {} unresolved)".format(

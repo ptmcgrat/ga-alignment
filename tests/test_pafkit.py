@@ -20,6 +20,8 @@ class Records(unittest.TestCase):
         self.assertEqual((r["matches"], r["block"], r["tp"], r["de"]), (98, 101, "P", 0.0123))
         self.assertEqual((r["cg"], r["cs"]), ("50M1I50M", ":50+a:48*ag"))
         self.assertIsNone(pafkit.parse_record(LINE)["cs"])
+        self.assertEqual(r["nn"], 0)
+        self.assertEqual(pafkit.parse_record(LINE.replace("\ttp:A:P", "\tnn:i:100\ttp:A:P"))["nn"], 100)
 
     def test_cs_ops_and_cigar(self):
         ops = pafkit.cs_ops(":50+a:48*ag-tt:2")

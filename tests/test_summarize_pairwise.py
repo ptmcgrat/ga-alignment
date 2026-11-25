@@ -165,6 +165,7 @@ class CommandLine(unittest.TestCase):
             self.assertTrue((folder / name).is_file(), name)
         report = (folder / "report.md").read_text()
         self.assertIn("PASS", report)
+        self.assertIn("Tables used: units.tsv (sha256 ", report)
         assign = pafkit.read_table(folder / "assignment.tsv")
         self.assertEqual({(a["run"], a["label_agrees"]) for a in assign}, {("A.asm5", "yes"), ("B.asm5", "yes")})
         recip = pafkit.read_table(folder / "reciprocity.tsv")

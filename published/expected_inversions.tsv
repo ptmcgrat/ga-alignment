@@ -1,0 +1,202 @@
+# Expected inversion states for project 2a's pairwise checks (spec, sections 4 and 5).
+# Source: Kumar NM et al. 2025, eLife 14:RP104923, Version of Record, Supplementary file 2 (sample metadata and
+# inversion genotypes), file Nikesh2025_elife_S2.xlsx, sha256 0d69e5b3d85b6898f42f864fa95a71d1fd66b186f07bb41ca2dd7c52c879ff77 (provided 2026-11-24).
+# Rules (decided 2026-11-24): an assembly whose sample is genotyped there takes its own genotype (basis: individual);
+# otherwise its species' genotype, if every sample of the same sex agrees, or failing that every sample of the species
+# (basis: species); otherwise unknown. The single LG11 column applies to both 11a and 11b. Heterozygous and unknown
+# states are reported, not scored. Scored: the seven assemblies of the subset. YH_LG10Y, the Y haplotig: normal on 10,
+# inferred from the sexes (females 27 of 27 inverted, males 27 of 28 heterozygous, so X inverted and Y normal); reported only.
+assembly_id	unit	expected	scored	basis
+MZ_MZ4f	2	normal	yes	species, 3 of 3 females
+MZ_MZ4f	9	normal	yes	species, 3 of 3 females
+MZ_MZ4f	10	normal	yes	species, 3 of 3 females
+MZ_MZ4f	11a	normal	yes	species, 3 of 3 females
+MZ_MZ4f	11b	normal	yes	species, 3 of 3 females
+MZ_MZ4f	13	normal	yes	species, 3 of 3 females
+MZ_MZ4f	20a	normal	yes	species, 3 of 3 females
+MZ_MZ4f	20b	normal	yes	species, 3 of 3 females
+MZ_NMetZ	2	normal	yes	species, 3 of 3 females
+MZ_NMetZ	9	normal	yes	species, 3 of 3 females
+MZ_NMetZ	10	normal	yes	species, 3 of 3 females
+MZ_NMetZ	11a	normal	yes	species, 3 of 3 females
+MZ_NMetZ	11b	normal	yes	species, 3 of 3 females
+MZ_NMetZ	13	normal	yes	species, 3 of 3 females
+MZ_NMetZ	20a	normal	yes	species, 3 of 3 females
+MZ_NMetZ	20b	normal	yes	species, 3 of 3 females
+MZ_UMD2025	2	normal	no	species, 19 of 19 samples
+MZ_UMD2025	9	normal	no	species, 19 of 19 samples
+MZ_UMD2025	10	normal	no	species, 19 of 19 samples
+MZ_UMD2025	11a	normal	no	species, 19 of 19 samples
+MZ_UMD2025	11b	normal	no	species, 19 of 19 samples
+MZ_UMD2025	13	normal	no	species, 19 of 19 samples
+MZ_UMD2025	20a	normal	no	species, 19 of 19 samples
+MZ_UMD2025	20b	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396454	2	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396454	9	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396454	10	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396454	11a	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396454	11b	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396454	13	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396454	20a	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396454	20b	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396453	2	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396453	9	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396453	10	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396453	11a	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396453	11b	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396453	13	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396453	20a	normal	no	species, 19 of 19 samples
+MZ_SAMEA123396453	20b	normal	no	species, 19 of 19 samples
+AC_fAstCal68	2	normal	no	species, 18 of 18 samples
+AC_fAstCal68	9	normal	no	species, 18 of 18 samples
+AC_fAstCal68	10	normal	no	species, 18 of 18 samples
+AC_fAstCal68	11a	normal	no	species, 18 of 18 samples
+AC_fAstCal68	11b	normal	no	species, 18 of 18 samples
+AC_fAstCal68	13	normal	no	species, 18 of 18 samples
+AC_fAstCal68	20a	normal	no	species, 18 of 18 samples
+AC_fAstCal68	20b	normal	no	species, 18 of 18 samples
+AC_SAMEA123396441	2	normal	yes	species, 18 of 18 samples
+AC_SAMEA123396441	9	normal	yes	species, 18 of 18 samples
+AC_SAMEA123396441	10	normal	yes	species, 18 of 18 samples
+AC_SAMEA123396441	11a	normal	yes	species, 18 of 18 samples
+AC_SAMEA123396441	11b	normal	yes	species, 18 of 18 samples
+AC_SAMEA123396441	13	normal	yes	species, 18 of 18 samples
+AC_SAMEA123396441	20a	normal	yes	species, 18 of 18 samples
+AC_SAMEA123396441	20b	normal	yes	species, 18 of 18 samples
+AC_SAMEA123396440	2	normal	no	species, 18 of 18 samples
+AC_SAMEA123396440	9	normal	no	species, 18 of 18 samples
+AC_SAMEA123396440	10	normal	no	species, 18 of 18 samples
+AC_SAMEA123396440	11a	normal	no	species, 18 of 18 samples
+AC_SAMEA123396440	11b	normal	no	species, 18 of 18 samples
+AC_SAMEA123396440	13	normal	no	species, 18 of 18 samples
+AC_SAMEA123396440	20a	normal	no	species, 18 of 18 samples
+AC_SAMEA123396440	20b	normal	no	species, 18 of 18 samples
+CV_CV1m	2	normal	no	individual Kocher_CV1m
+CV_CV1m	9	inverted	no	individual Kocher_CV1m
+CV_CV1m	10	normal	no	individual Kocher_CV1m
+CV_CV1m	11a	normal	no	individual Kocher_CV1m
+CV_CV1m	11b	normal	no	individual Kocher_CV1m
+CV_CV1m	13	normal	no	individual Kocher_CV1m
+CV_CV1m	20a	inverted	no	individual Kocher_CV1m
+CV_CV1m	20b	inverted	no	individual Kocher_CV1m
+CV_CV4f	2	normal	no	species, 26 of 26 samples
+CV_CV4f	9	inverted	no	species, 26 of 26 samples
+CV_CV4f	10	normal	no	species, 26 of 26 samples
+CV_CV4f	11a	unknown	no	species varies: 18 inverted, 7 normal, 1 heterozygous
+CV_CV4f	11b	unknown	no	species varies: 18 inverted, 7 normal, 1 heterozygous
+CV_CV4f	13	normal	no	species, 26 of 26 samples
+CV_CV4f	20a	inverted	no	species, 26 of 26 samples
+CV_CV4f	20b	inverted	no	species, 26 of 26 samples
+CV_CV2f	2	normal	no	individual Kocher_CV2f
+CV_CV2f	9	inverted	no	individual Kocher_CV2f
+CV_CV2f	10	normal	no	individual Kocher_CV2f
+CV_CV2f	11a	normal	no	individual Kocher_CV2f
+CV_CV2f	11b	normal	no	individual Kocher_CV2f
+CV_CV2f	13	normal	no	individual Kocher_CV2f
+CV_CV2f	20a	inverted	no	individual Kocher_CV2f
+CV_CV2f	20b	inverted	no	individual Kocher_CV2f
+DT_005m	2	normal	no	species, 19 of 19 samples
+DT_005m	9	inverted	no	species, 19 of 19 samples
+DT_005m	10	normal	no	species, 19 of 19 samples
+DT_005m	11a	inverted	no	species, 19 of 19 samples
+DT_005m	11b	inverted	no	species, 19 of 19 samples
+DT_005m	13	normal	no	species, 19 of 19 samples
+DT_005m	20a	inverted	no	species, 19 of 19 samples
+DT_005m	20b	inverted	no	species, 19 of 19 samples
+DT_004f	2	normal	no	species, 19 of 19 samples
+DT_004f	9	inverted	no	species, 19 of 19 samples
+DT_004f	10	normal	no	species, 19 of 19 samples
+DT_004f	11a	inverted	no	species, 19 of 19 samples
+DT_004f	11b	inverted	no	species, 19 of 19 samples
+DT_004f	13	normal	no	species, 19 of 19 samples
+DT_004f	20a	inverted	no	species, 19 of 19 samples
+DT_004f	20b	inverted	no	species, 19 of 19 samples
+DT_SAMEA123396444	2	normal	yes	species, 19 of 19 samples
+DT_SAMEA123396444	9	inverted	yes	species, 19 of 19 samples
+DT_SAMEA123396444	10	normal	yes	species, 19 of 19 samples
+DT_SAMEA123396444	11a	inverted	yes	species, 19 of 19 samples
+DT_SAMEA123396444	11b	inverted	yes	species, 19 of 19 samples
+DT_SAMEA123396444	13	normal	yes	species, 19 of 19 samples
+DT_SAMEA123396444	20a	inverted	yes	species, 19 of 19 samples
+DT_SAMEA123396444	20b	inverted	yes	species, 19 of 19 samples
+MC_MC1m	2	normal	no	individual Kocher_MC1m
+MC_MC1m	9	inverted	no	individual Kocher_MC1m
+MC_MC1m	10	normal	no	individual Kocher_MC1m
+MC_MC1m	11a	inverted	no	individual Kocher_MC1m
+MC_MC1m	11b	inverted	no	individual Kocher_MC1m
+MC_MC1m	13	normal	no	individual Kocher_MC1m
+MC_MC1m	20a	inverted	no	individual Kocher_MC1m
+MC_MC1m	20b	inverted	no	individual Kocher_MC1m
+MC_MC3m	2	normal	no	species, 3 of 3 samples
+MC_MC3m	9	inverted	no	species, 3 of 3 samples
+MC_MC3m	10	normal	no	species, 3 of 3 samples
+MC_MC3m	11a	inverted	no	species, 3 of 3 samples
+MC_MC3m	11b	inverted	no	species, 3 of 3 samples
+MC_MC3m	13	normal	no	species, 3 of 3 samples
+MC_MC3m	20a	inverted	no	species, 3 of 3 samples
+MC_MC3m	20b	inverted	no	species, 3 of 3 samples
+MC_MC2f	2	normal	no	individual Kocher_MC2f
+MC_MC2f	9	inverted	no	individual Kocher_MC2f
+MC_MC2f	10	normal	no	individual Kocher_MC2f
+MC_MC2f	11a	inverted	no	individual Kocher_MC2f
+MC_MC2f	11b	inverted	no	individual Kocher_MC2f
+MC_MC2f	13	normal	no	individual Kocher_MC2f
+MC_MC2f	20a	inverted	no	individual Kocher_MC2f
+MC_MC2f	20b	inverted	no	individual Kocher_MC2f
+RC_006pf	2	normal	yes	species, 20 of 20 samples
+RC_006pf	9	normal	yes	species, 20 of 20 samples
+RC_006pf	10	normal	yes	species, 20 of 20 samples
+RC_006pf	11a	normal	yes	species, 20 of 20 samples
+RC_006pf	11b	normal	yes	species, 20 of 20 samples
+RC_006pf	13	normal	yes	species, 20 of 20 samples
+RC_006pf	20a	inverted	yes	species, 20 of 20 samples
+RC_006pf	20b	normal	yes	species, 20 of 20 samples
+RC_005m	2	normal	no	species, 3 of 3 males
+RC_005m	9	normal	no	species, 3 of 3 males
+RC_005m	10	normal	no	species, 3 of 3 males
+RC_005m	11a	normal	no	species, 3 of 3 males
+RC_005m	11b	normal	no	species, 3 of 3 males
+RC_005m	13	normal	no	species, 3 of 3 males
+RC_005m	20a	inverted	no	species, 3 of 3 males
+RC_005m	20b	normal	no	species, 3 of 3 males
+YH_YH1m	2	inverted	yes	individual Kocher_YH1m
+YH_YH1m	9	inverted	yes	individual Kocher_YH1m
+YH_YH1m	10	heterozygous	no	individual Kocher_YH1m
+YH_YH1m	11a	inverted	yes	individual Kocher_YH1m
+YH_YH1m	11b	inverted	yes	individual Kocher_YH1m
+YH_YH1m	13	inverted	yes	individual Kocher_YH1m
+YH_YH1m	20a	inverted	yes	individual Kocher_YH1m
+YH_YH1m	20b	inverted	yes	individual Kocher_YH1m
+YH_YH2f	2	inverted	yes	individual Kocher_YH2f
+YH_YH2f	9	inverted	yes	individual Kocher_YH2f
+YH_YH2f	10	inverted	yes	individual Kocher_YH2f
+YH_YH2f	11a	inverted	yes	individual Kocher_YH2f
+YH_YH2f	11b	inverted	yes	individual Kocher_YH2f
+YH_YH2f	13	inverted	yes	individual Kocher_YH2f
+YH_YH2f	20a	inverted	yes	individual Kocher_YH2f
+YH_YH2f	20b	inverted	yes	individual Kocher_YH2f
+YH_YH7f	2	inverted	no	species, 27 of 27 females
+YH_YH7f	9	inverted	no	species, 27 of 27 females
+YH_YH7f	10	inverted	no	species, 27 of 27 females
+YH_YH7f	11a	inverted	no	species, 27 of 27 females
+YH_YH7f	11b	inverted	no	species, 27 of 27 females
+YH_YH7f	13	inverted	no	species, 27 of 27 females
+YH_YH7f	20a	inverted	no	species, 27 of 27 females
+YH_YH7f	20b	inverted	no	species, 27 of 27 females
+AS_Sanger	2	normal	no	species, 7 of 7 samples
+AS_Sanger	9	inverted	no	species, 7 of 7 samples
+AS_Sanger	10	normal	no	species, 7 of 7 samples
+AS_Sanger	11a	inverted	no	species, 7 of 7 samples
+AS_Sanger	11b	inverted	no	species, 7 of 7 samples
+AS_Sanger	13	normal	no	species, 7 of 7 samples
+AS_Sanger	20a	inverted	no	species, 7 of 7 samples
+AS_Sanger	20b	inverted	no	species, 7 of 7 samples
+AS_SAMEA123396442	2	normal	no	species, 7 of 7 samples
+AS_SAMEA123396442	9	inverted	no	species, 7 of 7 samples
+AS_SAMEA123396442	10	normal	no	species, 7 of 7 samples
+AS_SAMEA123396442	11a	inverted	no	species, 7 of 7 samples
+AS_SAMEA123396442	11b	inverted	no	species, 7 of 7 samples
+AS_SAMEA123396442	13	normal	no	species, 7 of 7 samples
+AS_SAMEA123396442	20a	inverted	no	species, 7 of 7 samples
+AS_SAMEA123396442	20b	inverted	no	species, 7 of 7 samples
+YH_LG10Y	10	normal	no	inferred: X inverted (females 27 of 27 inverted), Y normal (males 27 of 28 heterozygous)

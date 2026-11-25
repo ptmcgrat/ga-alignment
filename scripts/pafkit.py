@@ -20,14 +20,14 @@ _COMPLEMENT = bytes.maketrans(b"ACGTRYKMSWBDHVN", b"TGCAYRMKSWVHDBN")
 # ---------------------------------------------------------------- PAF records
 
 def parse_record(line, keep_strings=False):
-    """One PAF line as a dict: the 12 columns, tp, de, and (if keep_strings) the cs and cg strings."""
+    """One PAF line as a dict: the 12 columns, tp, de, nn (ambiguous bases), and (if keep_strings) cs and cg."""
     fields = line.rstrip("\n").split("\t")
     if len(fields) < 12:
         return None
     rec = {"qname": fields[0], "qlen": int(fields[1]), "qs": int(fields[2]), "qe": int(fields[3]),
            "strand": fields[4], "tname": fields[5], "tlen": int(fields[6]), "ts": int(fields[7]),
            "te": int(fields[8]), "matches": int(fields[9]), "block": int(fields[10]), "mapq": int(fields[11]),
-           "tp": "", "de": None, "cs": None, "cg": None}
+           "tp": "", "de": None, "nn": 0, "cs": None, "cg": None}
     for tag in fields[12:]:
         key, _, value = tag.partition(":")
         value = value.partition(":")[2]
@@ -35,6 +35,8 @@ def parse_record(line, keep_strings=False):
             rec["tp"] = value
         elif key == "de":
             rec["de"] = float(value)
+        elif key == "nn":
+            rec["nn"] = int(value)
         elif keep_strings and key in ("cs", "cg"):
             rec[key] = value
     return rec

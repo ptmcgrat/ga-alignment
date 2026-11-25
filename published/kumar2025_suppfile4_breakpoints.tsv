@@ -1,0 +1,13 @@
+# Kumar NM et al. 2025. eLife 14:RP104923, Version of Record, Supplementary file 4: estimates of breakpoint
+# locations in M_zebra_GT3a coordinates (bp), from whole-genome alignments of Aulonocara sp. 'chitande type north'
+# Nkhata Bay to M_zebra_GT3a. The tandem inversions on chromosomes 11 and 20 are split into a first (a) and second (b).
+# Source file: TableS4_breakpoint_estimate.xlsx, sha256 5deba0b4048542db77c11ae5fd25a1d85fa843df8e076152de88220ff5516630 (provided 2026-11-24).
+unit	chromosome	bp1_start	bp1_end	bp2_start	bp2_end
+2	LG2	19751534	19845509	43556655	43559056
+9	LG9	14912159	14966448	32492000	32996230
+10	LG10	11459086	11818098	29881276	29902559
+11a	LG11	8281988	8303032	18425177	18425215
+11b	LG11	18425177	18425215	30372599	30387602
+13	LG13	2398108	2412755	23074431	23124401
+20a	LG20	19616377	19623494	29682528	29698815
+20b	LG20	29682528	29698815	33170004	33254382

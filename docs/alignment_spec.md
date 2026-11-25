@@ -2,9 +2,9 @@
 
 **Project:** 2a, Alignment
 **Repository:** `ga-alignment` (`github.com/ptmcgrat/ga-alignment`)
-**Document version:** 0.7, 2026-11-24 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks)
+**Document version:** 0.8, 2026-11-24 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`)
 **Owner:** McGrath lab
-**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; all pairwise alignments done; gates 0 to 2 closed; the pairwise checks (zip `007`) run next
+**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; all pairwise alignments done; gates 0 to 2 closed; the pairwise checks (zips `007` and `008`) run next
 
 This is the single specification document of project 2a. It is always replaced whole. It records what the
 coordinator specification already fixes, and the methods the project has decided. Questions 1 and 2 were left to the
@@ -190,7 +190,8 @@ graph; whole genomes (decision 2026-10-26); all results in reference coordinates
 - **Scripts:** `scripts/align_pairwise.py` (the runs, their logs and the manifest), `scripts/paf_overview.py` (per-chromosome
   tables and block lists of one PAF), `scripts/check_pairwise.py` (the exact and accounting checks of section 5) and
   `scripts/summarize_pairwise.py` (the known-feature and measured checks), with `scripts/pafkit.py` shared by the last two.
-- **Recorded inputs** (`data/`): `kumar2025_suppfile4_breakpoints.tsv` (Kumar et al.'s Supplementary file 4, the eight
+- **Recorded inputs** (`published/`; not `data/`, which the repository's `.gitignore` keeps out because data lives
+  under the data root): `kumar2025_suppfile4_breakpoints.tsv` (Kumar et al.'s Supplementary file 4, the eight
   breakpoint units) and `expected_inversions.tsv` (each assembly's expected state per unit, from their Supplementary file 2),
   each with its source file and that file's sha256.
 - **`YH_LG10Y`** (the Y haplotig) is aligned too, after the 24 panel assemblies.
@@ -349,7 +350,8 @@ Written once and applied to every run, in four kinds. Thresholds for the measure
 before the full run, relative to the same chromosome in the other assemblies.
 
 1. **Exact: 100%, or the output is not accepted.** Query and target names and lengths match their `provenance.json`; every
-   panel assembly has a PAF; every `cs` string reproduces its aligned query segment and agrees with the CIGAR; every graph path
+   panel assembly has a PAF; every `cs` string reproduces its aligned query segment and agrees with the CIGAR, its matched
+   bases equal column 10, and its columns minus the ambiguous bases (the `nn` tag) equal column 11, which leaves them out; every graph path
    spells its input (our own script, case-insensitive, differences reported with positions); one complete, forward, acyclic
    reference path per reference sequence; every output validates against its contract version (once defined).
 2. **Accounting:** every input base is aligned or in the graph, or listed as missing with a reason; our count from the GFA
@@ -403,7 +405,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | 2026-11-24 | `asm5` confirmed for all 24, after the comparison on `YH_YH1m` (decided before the bulk runs; recorded here) | `asm10`'s additional alignment is about 7% divergent (section 4) |
 | 2026-11-24 | Known features scored as in section 5: Kumar et al.'s four block filters; the 80% strand rule; breakpoint intervals scored by overlap with Supplementary file 4 | the method of Kumar et al.'s Version of Record; real blocks end short of breakpoints, which lie in repeats (`YH_YH1m`, LG9) |
 | 2026-11-24 | Expected states from Supplementary file 2; `YH_YH1m`'s LG10 not scored; DT's LG11 scored as both 11a and 11b | genotypes for six of our individuals and all eight species; LG10 is XY in YH; LG11 is one genotype in Supplementary file 2 |
-| 2026-11-24 | Supplementary files 4 and 2 kept in `data/` as recorded inputs, each with its source and sha256 | the checks read recorded inputs, not numbers in code |
+| 2026-11-24 | Supplementary files 4 and 2 kept in `published/` as recorded inputs, each with its source and sha256, and pinned by `tests/test_published.py` | the checks read recorded inputs, not numbers in code; `data/` is kept out of the repository by its `.gitignore` (data lives under the data root) |
 | 2026-11-24 | Soft-masking is not an input | Minigraph-Cactus ignores it (its FAQ); minimap2 aligns masked sequence (89.5% of the reference covered on `YH_YH1m`, of which only 68% is upper case) |
 | 2026-11-19 | Pairwise: minimap2's default secondary alignments, every record kept; the reference indexed in each run; PAFs in scratch until a data-root folder exists | the student's decision; a saved index would fix one preset's indexing parameters (minimap2 README) |
 
@@ -418,6 +420,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | Data-root folders for the results, added to `ga_common.paths` and `sync.py` by the coordinator; until then results stay in `~/scratch/ga-alignment` | before results leave scratch |
 | Readers and validators for PAF and GFA, and coordinate-frame conversions, to be added to the common library by the coordinator once the fields are agreed | before first integration |
 | How chromosomes are anchored across assemblies given mixed naming and submitter-specific LG labels (section 2): tested by the pairwise alignments (section 4), with project 2b | no |
+| A shared place for the published tables, if project 2b needs them too (coordinator) | no |
 | `YH_YH1m`'s LG9 join (section 2): to project 2b through the coordinator, with the checks' results | no |
 | Note for the owner: the Version of Record's figure captions swap the YH sexes (section 2) | no |
 | `MZ_UMD2025`'s B chromosome (section 2): its alignments may look like rearrangements; projects 2b and 3 should know (coordinator) | no |
@@ -444,7 +447,12 @@ project 2b through the coordinator; deciding between assembly error and biology 
   real output: the LG9 inversion and both breakpoint intervals found and matched to Table S4. Corrected: an inversion is marked
   by its strand relative to its flanks. Explained: the misplaced first segment of `YH_YH1m`'s LG9, a likely scaffolding error.
 - Inputs checked (2026-11-19): every check passed (section 2).
-- Pairwise alignments done (section 4): 28 runs in `PW_v1`. Zip `007` checks them (section 5); its reports are awaited.
+- Pairwise alignments done (section 4): 28 runs in `PW_v1`.
+- Zip `007`'s first check run (`checks/20261125-024645`) failed 27 of the 28 runs on one comparison only. Its rule took column
+  11 to count every alignment column, but column 11 leaves out ambiguous bases, which minimap2 counts in the `nn` tag: the
+  differences were 100, 200 or 300 bases, NCBI's 100-N runs for assembly gaps. Every `cs` string rebuilt both genomes base
+  for base and agreed with its CIGAR; the reference has no letters other than A, C, G, T and N. The same zip's two tables
+  were left out of git by `.gitignore` (`data/`), so the summary could not start. Zip `008` fixes both; the checks rerun.
 - 2026-11-18: an environment zip mistakenly numbered `alignment_001` was committed here (5d9f9e2) and reverted (f60fbea); the
   same content comes as `004`. The same zip had been pushed to `ga-repeats` by mistake (f15e6dc) and was reverted there.
 - The repeat annotation (if it is an input) is not yet produced. Nothing is ready to integrate.
@@ -468,7 +476,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
   and `panel_chromosomes_P1.tsv` from the coordinator repository, and the papers and pages of the briefing, Part D, **uploaded by the
   student as PDFs** (items 1–8 required, 9 and 10 may follow).
 - Python 3.9 is the minimum for code that uses the common library.
-- **`VERSION`** holds the number of the last zip applied, three digits (`007`). Every zip's instructions start by checking `pwd`,
+- **`VERSION`** holds the number of the last zip applied, three digits (`008`). Every zip's instructions start by checking `pwd`,
   `git remote -v` and `VERSION` before anything is copied.
 - **This project on mzebra:** conda env `ga-alignment` (section 6); Cactus image `~/containers/cactus_v4.0.0.sif` (the v3.3.0 image may be removed), with the
   pull cache and tmp in `~/containers/cache` and `~/containers/tmp`, set per session (`.bashrc` is not edited); working space
