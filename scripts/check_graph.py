@@ -6,7 +6,8 @@ For each run (a folder written by build_graph.py whose last run ended with exit 
   exact           every walk (W line) in both graphs spells its input contig over its start-end range, compared in
                   upper case, with the first differing position; the reference (the H line's RS tag) has one walk
                   per reference contig, complete, forward only, and visiting no node twice
-  accounting      per input contig, its bases in each graph plus Cactus's absent intervals for that graph (the
+  accounting      per input contig (its walks merged into contiguous pieces, as Cactus counts fragments), its
+                  bases in each graph plus Cactus's absent intervals for that graph (the
                   clipped*.beds archives) equal its length; our counts per contig and per reference contig and genome
                   equal Cactus's clipped-by-input-contig.tsv and clipped-by-reference-contig.tsv exactly
   known features  each walk projected onto the reference walk: steps on reference nodes, merged into blocks where
@@ -229,16 +230,21 @@ def check_run(folder, reference, ref_labels, units, expected, paf_calls, paf_run
     sizes = collections.Counter()
     for r in read_cactus_table(out / "{}.input-contig-sizes.tsv.gz".format(name)):
         sizes[(r["event"], r["base_contig"])] += int(r["length"])
-    mine = {}
+    mine, spans, chroms = {}, collections.defaultdict(list), collections.defaultdict(collections.Counter)
     for phase, graph in graphs.items():
         for w in graph["walks"]:
-            key = (w["sample"], w["contig"])
-            row = mine.setdefault(key, {"full_bp": 0, "full_frags": 0, "clip_bp": 0, "clip_frags": 0, "ref_chrom": "_NONE_"})
-            row[phase + "_bp"] += w["end"] - w["start"]
-            row[phase + "_frags"] += 1
+            spans[(phase, w["sample"], w["contig"])].append((w["start"], w["end"]))
             if phase == "full":
-                counts = collections.Counter(pos_full[n][0] for _, n in steps(w["walk"]) if n in pos_full)
-                row["ref_chrom"] = counts.most_common(1)[0][0] if counts else "_UNKNOWN_"
+                for _, n in steps(w["walk"]):
+                    if n in pos_full:
+                        chroms[(w["sample"], w["contig"])][pos_full[n][0]] += pos_full[n][2]
+    for (phase, sample, contig), intervals in spans.items():
+        row = mine.setdefault((sample, contig), {"full_bp": 0, "full_frags": 0, "clip_bp": 0, "clip_frags": 0, "ref_chrom": "_NONE_"})
+        pieces = pafkit.merge(intervals)               # contiguous pieces: walks that abut or overlap are one
+        row[phase + "_bp"], row[phase + "_frags"] = pafkit.total(pieces), len(pieces)
+    for key, row in mine.items():
+        if row["full_frags"]:
+            row["ref_chrom"] = chroms[key].most_common(1)[0][0] if chroms[key] else "_UNKNOWN_"
     absent = {phase: read_beds(out / "{}.stats".format(name) / ("clipped.full.beds.tar.gz" if phase == "full" else "clipped.beds.tar.gz"))
               for phase in graphs}
     problems = []

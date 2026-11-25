@@ -155,6 +155,20 @@ class CommandLine(Fixture):
         self.assertEqual(code, 1)
         self.assertIn("accounting: 0 of 1 runs", out)
 
+    def test_abutting_walks_count_as_one_fragment(self):
+        full = self.run / "out" / "LG9.full.gfa.gz"
+        text = gzip.decompress(full.read_bytes()).decode()
+        b_line = next(l for l in text.splitlines() if l.startswith("W\tMZ_B"))
+        cut = B_WALK.index(">201")                     # split MZ_B's walk in two at node 201
+        first, second = B_WALK[:cut], B_WALK[cut:]
+        n1 = len(cg.spell(cg.steps(first), NODES))
+        total = len(cg.spell(cg.steps(B_WALK), NODES))
+        split = "W\tMZ_B\t0\tb9\t0\t{}\t{}\nW\tMZ_B\t0\tb9\t{}\t{}\t{}".format(n1, first, n1, total, second)
+        full.write_bytes(gzip.compress(text.replace(b_line, split).encode()))
+        code, out = self.run_main("--go", stamp=7)
+        self.assertEqual(code, 0, out)
+        self.assertIn("accounting: 1 of 1 runs", out)
+
     def test_dry_run_writes_nothing(self):
         code, out = self.run_main()
         self.assertEqual(code, 0)

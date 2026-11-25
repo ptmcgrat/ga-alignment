@@ -104,6 +104,17 @@ class Calls(unittest.TestCase):
         self.assertEqual((a["call"], a["background_strand"], a["bp1_overlap"], a["bp2_overlap"]), ("inverted", "-", "yes", "yes"))
         self.assertEqual((b["call"], b["bp1_overlap"], b["bp2_overlap"]), ("inverted", "yes", "yes"))
 
+    def test_an_overlap_at_a_tandem_junction_is_part_of_the_interval(self):
+        # YH's LG20 in the graph: 20b's segment starts 25 kb before 20a's ends; the published junction lies in the overlap
+        a = {"unit": "20a", "chromosome": "LG20", "bp1_start": 19_600_000, "bp1_end": 19_620_000, "bp2_start": 29_682_500, "bp2_end": 29_698_800}
+        b = {"unit": "20b", "chromosome": "LG20", "bp1_start": 29_682_500, "bp1_end": 29_698_800, "bp2_start": 33_170_000, "bp2_end": 33_250_000}
+        blocks = pieces([(0, 19_620_000, "+", fwd), (19_620_000, 29_698_500, "-", inv(19_620_000, 29_698_500)),
+                         (29_673_600, 33_250_000, "-", inv(29_673_600, 33_250_000)), (33_270_000, 38_800_000, "+", fwd)])
+        rb = self.call(blocks, b, (a, b))
+        self.assertEqual((rb["call"], rb["bp1_observed"], rb["bp1_overlap"]), ("inverted", "19620000-29698500", "yes"))
+        ra = self.call(blocks, a, (a, b))
+        self.assertEqual((ra["call"], ra["bp2_observed"], ra["bp2_overlap"]), ("inverted", "29673600-33270000", "yes"))
+
     def test_a_segment_reaching_slightly_into_a_unit_is_not_absorbed(self):
         unit_a = dict(UNIT11A, bp2_start=17_970_000, bp2_end=18_010_000)
         unit_b = dict(UNIT11B, bp1_start=17_970_000, bp1_end=18_010_000)

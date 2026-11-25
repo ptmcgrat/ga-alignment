@@ -13,8 +13,9 @@ the 24 others), or --assemblies ID ... (the reference is always added).
 The command, run under Apptainer from the Cactus 4.0.0 image:
   taskset -c <cpus> apptainer exec --cleanenv --env TMPDIR=<work> --bind ... <image> cactus-pangenome <jobstore> <seqfile>
       --outDir <out> --outName <name> --reference MZ_NMK2024a --refContigs ... [--otherContig chrOther]
-      --gfa full clip (or full alone with --set all) --validate --workDir <work>
+      --gfa full clip (or full alone with --set all) --viz --validate --workDir <work>
       --maxCores N --mgCores N --consCores N --indexCores N --mapCores min(6, N) --maxMemory <memory> [--restart]
+--viz adds odgi's 1-D image of each chromosome's full graph (agreed 2026-11-25); it changes no graph.
 taskset confines the whole run to the CPUs given (--cpus, default the first --threads CPUs); the per-step options
 size each job; --maxMemory is the ceiling --consRetainPages auto sizes against. Run it under nice -n 10 in screen.
 
@@ -110,7 +111,7 @@ def cactus_command(args, folder, name, ref_contigs, other_contig, gfa, binds):
             "--refContigs"] + list(ref_contigs)
     if other_contig:
         cmd += ["--otherContig", other_contig]
-    cmd += ["--gfa"] + list(gfa) + ["--validate", "--workDir", str(work),
+    cmd += ["--gfa"] + list(gfa) + ["--viz", "--validate", "--workDir", str(work),
                                     "--maxCores", str(threads), "--mgCores", str(threads), "--consCores", str(threads),
                                     "--indexCores", str(threads), "--mapCores", str(min(6, threads)),
                                     "--maxMemory", args.memory]

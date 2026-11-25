@@ -87,7 +87,7 @@ class Planning(StandIn):
     def test_dry_run_of_a_chromosome_run(self):
         code, out, _ = self.run_main("--assemblies", "A", "B", "--chromosome", "LG20", "--threads", "8")
         self.assertEqual(code, 0, out)
-        for piece in ("taskset -c 0-7", "--refContigs R20 --gfa full clip --validate", "--maxCores 8", "--mapCores 6",
+        for piece in ("taskset -c 0-7", "--refContigs R20 --gfa full clip --viz --validate", "--maxCores 8", "--mapCores 6",
                       "--maxMemory 200G", "-> 2 sequence(s) for LG20"):
             self.assertIn(piece, out)
         self.assertNotIn("--otherContig", out)
@@ -100,7 +100,7 @@ class Planning(StandIn):
         self.assertIn("--refContigs R1 R20 --otherContig chrOther --gfa full clip", out)
         self.assertIn("--maxCores 16", out)
         code, out, _ = self.run_main("--set", "all")
-        self.assertIn("--gfa full --validate", out)
+        self.assertIn("--gfa full --viz --validate", out)
 
     def test_an_assembly_without_sequences_for_the_chromosome_stops(self):
         code, _, err = self.run_main("--assemblies", "A", "B", "--chromosome", "LG1", "--name", "x")

@@ -16,7 +16,8 @@ Inversions (forward runs, the reference as target), for each unit of Supplementa
               query position jumps by more than 1 Mb; segments of >= 100 kb kept). A segment belongs to the unit's
               inverted stretch if it is on the other strand and most of it lies inside the unit. The observed
               interval runs from the end of the nearest other segment that ends before the stretch to its start,
-              and from its end to the start of the nearest other segment that starts after it. Scored by
+              and from its end to the start of the nearest other segment that starts after it, each extended through any
+              other segment that overlaps the stretch's edge (aligned both ways, it may hold the breakpoint). Scored by
               overlap with Supplementary file 4's interval for YH only, whose alignments that table came from;
               reported for the others, with the distance of the inverted block ends from the interval
   expected    published/expected_inversions.tsv (from Supplementary file 2). Scored rows decide the known-feature
@@ -163,21 +164,24 @@ def call_unit(unit, chrom_units, blocks, p):
         return res
     start, end = min(s["ts"] for s in span), max(s["te"] for s in span)
     others = [s for s in segs if s not in span]
-    # the nearest other segment ending before the stretch, and starting after it, bound the breakpoints
+    # each interval runs from the nearest other segment clear of the stretch to the stretch, extended through any
+    # other segment that overlaps the stretch's edge there: an overlap is aligned both ways, so it may hold the breakpoint
     before = max((s["te"] for s in others if s["te"] <= start), default=None)
+    reach = max([start] + [s["te"] for s in others if s["ts"] < start < s["te"]])
     after = min((s["ts"] for s in others if s["ts"] >= end), default=None)
+    back = min([end] + [s["ts"] for s in others if s["ts"] < end < s["te"]])
     res.update(inverted_start=start, inverted_end=end, bp1_distance=distance(start, unit["bp1_start"], unit["bp1_end"]),
                bp2_distance=distance(end, unit["bp2_start"], unit["bp2_end"]))
     if before is None:
-        res["bp1_observed"], res["bp1_overlap"] = "-{}".format(start), "unresolved"
+        res["bp1_observed"], res["bp1_overlap"] = "-{}".format(reach), "unresolved"
     else:
-        res["bp1_observed"] = "{}-{}".format(before, start)
-        res["bp1_overlap"] = "yes" if before <= unit["bp1_end"] and start >= unit["bp1_start"] else "no"
+        res["bp1_observed"] = "{}-{}".format(before, reach)
+        res["bp1_overlap"] = "yes" if before <= unit["bp1_end"] and reach >= unit["bp1_start"] else "no"
     if after is None:
-        res["bp2_observed"], res["bp2_overlap"] = "{}-".format(end), "unresolved"
+        res["bp2_observed"], res["bp2_overlap"] = "{}-".format(back), "unresolved"
     else:
-        res["bp2_observed"] = "{}-{}".format(end, after)
-        res["bp2_overlap"] = "yes" if end <= unit["bp2_end"] and after >= unit["bp2_start"] else "no"
+        res["bp2_observed"] = "{}-{}".format(back, after)
+        res["bp2_overlap"] = "yes" if back <= unit["bp2_end"] and after >= unit["bp2_start"] else "no"
     return res
 
 

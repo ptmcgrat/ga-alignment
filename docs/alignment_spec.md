@@ -2,9 +2,9 @@
 
 **Project:** 2a, Alignment
 **Repository:** `ga-alignment` (`github.com/ptmcgrat/ga-alignment`)
-**Document version:** 0.11, 2026-11-25 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N; 0.10, 2026-11-24: the pairwise checks pass; gate 3 closed; the graph settings; the graph runner; 0.11, 2026-11-25: the chromosome graph runs; the graph checks)
+**Document version:** 0.12, 2026-11-25 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N; 0.10, 2026-11-24: the pairwise checks pass; gate 3 closed; the graph settings; the graph runner; 0.11, 2026-11-25: the chromosome graph runs; the graph checks; 0.12, 2026-11-25: the graph checks' results; breakpoint intervals through overlaps; fragments as contiguous pieces; `--viz`)
 **Owner:** McGrath lab
-**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; pairwise alignments done and checked; gates 0 to 3 closed; the graph's chromosome runs done; their checks (zip `011`) run next
+**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; pairwise alignments done and checked; gates 0 to 3 closed; the chromosome graphs built and checked; the checks rerun with zip `012`'s fixes, then the whole-genome subset run
 
 This is the single specification document of project 2a. It is always replaced whole. It records what the
 coordinator specification already fixes, and the methods the project has decided. Questions 1 and 2 were left to the
@@ -214,7 +214,8 @@ graph; whole genomes (decision 2026-10-26); all results in reference coordinates
   the full graph (`--gfa` alone gives the clip graph); `--validate`; Cactus's default chromosome-assignment thresholds (no
   `--permissiveContigFilter`); the configuration's deletion filters as they are (`delFilter` 10 Mb, `delFilterThreshold`
   0.01, `delFilterMaxRemove` 1 Mb, `delFilterMinSupport` 2, `delFilterQuerySizeThreshold` 2; in the clip graph
-  `delEdgeFilter` 10 Mb). The clip graph is written on the subset only, to measure what clipping removes and to check our
+  `delEdgeFilter` 10 Mb); `--viz` (agreed 2026-11-25), which adds odgi's 1-D image of each chromosome's full graph and
+  changes no graph. The clip graph is written on the subset only, to measure what clipping removes and to check our
   accounting against Cactus's `clipped-by-reference-contig.tsv`.
 - **Caps:** `taskset` confines a run to a CPU range; the per-step options (`--mgCores`, `--mapCores`, at most 6, `--consCores`,
   `--indexCores`, and `--maxCores`) size each job; `--maxMemory` is the ceiling `--consRetainPages auto` sizes against. In
@@ -383,7 +384,9 @@ before the full run, relative to the same chromosome in the other assemblies.
    the last on the chromosome, with at least 0.5 Mb aligned there), normal when at most 20% do, and otherwise unresolved;
    unresolved too when the interior and the flanks lie on different sequences. A segment belongs to a unit's inverted stretch
    only if most of it lies inside the unit. For YH, whose alignments Supplementary file 4 came from (its caption), an inverted
-   unit's observed breakpoint intervals must overlap the published ones; for the other assemblies they are reported, with the
+   unit's observed breakpoint intervals must overlap the published ones; each runs from the nearest segment clear of the
+   inverted stretch to the stretch, extended through any segment overlapping its edge (2026-11-25, after the graph
+   results: an overlap is aligned both ways and may hold the breakpoint); for the other assemblies they are reported, with the
    distance of the block ends from the published intervals. Scored on the subset, 55 units: a disagreement
    sends the plan back to question 1; an unresolved unit is reported, not failed. Heterozygous and unknown states are not scored
    (`YH_YH1m`'s LG10, heterozygous in this male). Reported, not scored: the other 17 assemblies against the same expectations;
@@ -396,7 +399,8 @@ before the full run, relative to the same chromosome in the other assemblies.
 5. **Graph checks** (agreed 2026-11-25, before any graph result was read; `scripts/check_graph.py`). Exact: every walk in the
    full and clip graphs spells its input contig over its stated range, compared in upper case, with the first differing
    position; the reference has one walk per reference contig, complete, forward only, and visiting no node twice.
-   Accounting: per input contig, its bases in each graph plus Cactus's absent intervals for that graph equal its length, and
+   Accounting: per input contig (fragments being contiguous pieces, abutting walks merged, as Cactus counts them), its
+   bases in each graph plus Cactus's absent intervals for that graph equal its length, and
    our counts per contig and per reference contig and genome equal Cactus's `clipped-by-input-contig.tsv` and
    `clipped-by-reference-contig.tsv` exactly. Known features: each walk is projected onto the reference walk (steps on
    reference nodes, merged into blocks where the strand holds and both coordinates continue within 10 kb), then called by
@@ -437,6 +441,9 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | 2026-11-24 | `asm5` confirmed for all 24, after the comparison on `YH_YH1m` (decided before the bulk runs; recorded here) | `asm10`'s additional alignment is about 7% divergent (section 4) |
 | 2026-11-24 | Known features scored as in section 5: Kumar et al.'s four block filters; the 80% strand rule; breakpoint intervals scored by overlap with Supplementary file 4 | the method of Kumar et al.'s Version of Record; real blocks end short of breakpoints, which lie in repeats (`YH_YH1m`, LG9) |
 | 2026-11-24 | Expected states from Supplementary file 2; `YH_YH1m`'s LG10 not scored; DT's LG11 scored as both 11a and 11b | genotypes for six of our individuals and all eight species; LG10 is XY in YH; LG11 is one genotype in Supplementary file 2 |
+| 2026-11-25 | Breakpoint intervals run through any segment overlapping the inverted stretch's edge (section 5). Changed after the graph results | YH's 20a and 20b segments overlap by about 25 kb at the tandem junction in the graph, and the published interval lies in the overlap; previewed on the PAF segments, it changes no scored verdict and one reported one (`YH_YH7f` LG9, to agree) |
+| 2026-11-25 | Fragments are counted as contiguous pieces | Cactus's definition; counting walks was a bug in our check (every base count already matched) |
+| 2026-11-25 | `--viz` in graph runs | the student's choice: images of each chromosome's graph to read structural variants by eye; it adds files and changes no graph |
 | 2026-11-25 | The graph checks as in section 5 (item 5); the whole-genome subset run waits for their results on LG9 and LG20 | agreed with the student; a settings problem found on two chromosomes costs less than one found on the whole genome |
 | 2026-11-24 | Graph settings and caps as in section 4 (step 4) | agreed with the student after gate 3; options and defaults read from the 4.0.0 help and configuration |
 | 2026-11-24 | The full graph is built from scratch at step 6 | section 4: little is reused, reusing mappings needs `zipAlleles` off, and the result would depend on the subset |
@@ -516,6 +523,16 @@ project 2b through the coordinator; deciding between assembly error and biology 
   only the extra unplaced scaffolds that the pairwise assignment had added (for example 4 of `YH_YH1m`'s, 2.75 Mb, on LG20):
   Cactus's thresholds are stricter than ours. On LG20, the deletion filter removed 589 mapping lines (2.48 Mb of matches)
   and the clip phase severed 4 of 16 reverse-strand runs. Zip `011` checks the three graphs.
+- Zip `011`'s graph checks (`graph/GR_v1/checks/`): exact, 6 of 6 graphs (1.70 billion bases spelled). Accounting: every base
+  count equals Cactus's; only fragment counts differed, from our counting of walks rather than contiguous pieces. Known
+  features: 19 of 21 scored units agreed; `YH_YH1m` and `YH_YH2f` on 20b disagreed on the first breakpoint only, from the
+  25 kb overlap of their 20a and 20b segments. Reference-only stretches: everything no PAF covers is reference-only in the
+  graph too (99.9-100%), but the graph has more reference-only sequence (1.0, 2.6 and 1.9 Mb on LG8, LG9 and LG20, of which
+  9-65% is PAF-only), and our count agrees with Cactus's `refgaps.bed` within 1-2%: the graph leaves some reference
+  unaligned that minimap2 aligned. Clipping removed up to 21.8% of a chromosome's input (`MZ_NMetZ`, LG9, 9.85 Mb); LG9's
+  graph is 83.3 Mb full and 54.1 Mb clipped. DT's first LG9 breakpoint: 14.50-14.61 Mb in the graph, 15.11-15.24 Mb in the
+  PAFs (reported). Zip `012` fixes the fragment count and the interval rule; both checks rerun before the whole-genome
+  subset run.
 - 2026-11-18: an environment zip mistakenly numbered `alignment_001` was committed here (5d9f9e2) and reverted (f60fbea); the
   same content comes as `004`. The same zip had been pushed to `ga-repeats` by mistake (f15e6dc) and was reverted there.
 - The repeat annotation (if it is an input) is not yet produced. Nothing is ready to integrate.
@@ -539,7 +556,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
   and `panel_chromosomes_P1.tsv` from the coordinator repository, and the papers and pages of the briefing, Part D, **uploaded by the
   student as PDFs** (items 1–8 required, 9 and 10 may follow).
 - Python 3.9 is the minimum for code that uses the common library.
-- **`VERSION`** holds the number of the last zip applied, three digits (`011`). Every zip's instructions start by checking `pwd`,
+- **`VERSION`** holds the number of the last zip applied, three digits (`012`). Every zip's instructions start by checking `pwd`,
   `git remote -v` and `VERSION` before anything is copied.
 - **This project on mzebra:** conda env `ga-alignment` (section 6); Cactus image `~/containers/cactus_v4.0.0.sif` (the v3.3.0 image may be removed), with the
   pull cache and tmp in `~/containers/cache` and `~/containers/tmp`, set per session (`.bashrc` is not edited); working space
