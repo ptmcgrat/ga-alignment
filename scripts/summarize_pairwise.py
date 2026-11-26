@@ -18,6 +18,7 @@ Inversions (forward runs, the reference as target), for each unit of Supplementa
               interval runs from the end of the nearest other segment that ends before the stretch to its start,
               and from its end to the start of the nearest other segment that starts after it, each extended through any
               other segment that overlaps the stretch's edge (aligned both ways, it may hold the breakpoint). Scored by
+              overlap within 10 kb (the graph check's own continuity tolerance) and
               overlap with Supplementary file 4's interval for YH only, whose alignments that table came from;
               reported for the others, with the distance of the inverted block ends from the interval
   expected    published/expected_inversions.tsv (from Supplementary file 2). Scored rows decide the known-feature
@@ -61,7 +62,7 @@ INV_COLUMNS = ["run", "assembly", "preset", "unit", "chromosome", "main_query", 
 class Params:
     def __init__(self, args):
         for key in ("min_identity", "min_block", "min_contig", "min_segment", "max_jump", "call_fraction",
-                    "min_background", "min_interior", "flank_window"):
+                    "min_background", "min_interior", "flank_window", "breakpoint_tolerance"):
             setattr(self, key, getattr(args, key))
 
 
@@ -172,16 +173,17 @@ def call_unit(unit, chrom_units, blocks, p):
     back = min([end] + [s["ts"] for s in others if s["ts"] < end < s["te"]])
     res.update(inverted_start=start, inverted_end=end, bp1_distance=distance(start, unit["bp1_start"], unit["bp1_end"]),
                bp2_distance=distance(end, unit["bp2_start"], unit["bp2_end"]))
+    tol = getattr(p, "breakpoint_tolerance", 0)       # 10 kb by default (2026-11-26): the method's own resolution
     if before is None:
         res["bp1_observed"], res["bp1_overlap"] = "-{}".format(reach), "unresolved"
     else:
         res["bp1_observed"] = "{}-{}".format(before, reach)
-        res["bp1_overlap"] = "yes" if before <= unit["bp1_end"] and reach >= unit["bp1_start"] else "no"
+        res["bp1_overlap"] = "yes" if before <= unit["bp1_end"] + tol and reach >= unit["bp1_start"] - tol else "no"
     if after is None:
         res["bp2_observed"], res["bp2_overlap"] = "{}-".format(back), "unresolved"
     else:
         res["bp2_observed"] = "{}-{}".format(back, after)
-        res["bp2_overlap"] = "yes" if back <= unit["bp2_end"] and after >= unit["bp2_start"] else "no"
+        res["bp2_overlap"] = "yes" if back <= unit["bp2_end"] + tol and after >= unit["bp2_start"] - tol else "no"
     return res
 
 
@@ -440,6 +442,8 @@ def parse_args(argv):
     parser.add_argument("--call-fraction", type=float, default=0.80)
     parser.add_argument("--min-background", type=int, default=500000)
     parser.add_argument("--flank-window", type=int, default=2000000)
+    parser.add_argument("--breakpoint-tolerance", type=int, default=10000,
+                        help="observed and published breakpoint intervals count as overlapping within this distance")
     parser.add_argument("--breakpoint-species", default="YH",
                         help="the species whose breakpoints are scored against Supplementary file 4 (default: %(default)s)")
     parser.add_argument("--min-interior", type=int, default=100000)

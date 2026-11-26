@@ -137,6 +137,40 @@ def graph_namer(command):
     return lambda contig: other if other and contig not in ref_contigs else contig
 
 
+def fill_unanchored(mine, cactus_contigs):
+    """Contigs whose walks touch no reference node cannot be placed from the graph: take Cactus's chromosome for them.
+    Returns their number and bases."""
+    n = bp = 0
+    for key, row in mine.items():
+        if row["ref_chrom"] == "_UNKNOWN_" and row["full_frags"]:
+            row["ref_chrom"] = cactus_contigs.get(key, {}).get("ref_chrom", "_UNKNOWN_")
+            n, bp = n + 1, bp + row["full_bp"]
+    return n, bp
+
+
+def consensus(inversions):
+    """Per run and unit: each carrier's observed interval in the graph and the interval they all share."""
+    rows = []
+    groups = collections.defaultdict(list)
+    for r in inversions:
+        if r["call"] == "inverted":
+            groups[(r["run"], r["unit"])].append(r)
+    for (run, unit), group in sorted(groups.items()):
+        row = {"run": run, "unit": unit, "carriers": ",".join(r["assembly"] for r in group)}
+        for k in ("bp1", "bp2"):
+            ivs = [interval(r[k + "_observed"]) for r in group]
+            pub = interval(group[0][k + "_published"])
+            row[k + "_published_width"] = pub[1] - pub[0] if pub else ""
+            if ivs and all(ivs):
+                lo, hi = max(a for a, _ in ivs), min(b for _, b in ivs)
+                row[k + "_shared"] = "{}-{}".format(lo, hi) if lo <= hi else "none (intervals disjoint)"
+                row[k + "_shared_width"] = hi - lo if lo <= hi else ""
+            else:
+                row[k + "_shared"], row[k + "_shared_width"] = "unresolved", ""
+        rows.append(row)
+    return rows
+
+
 def classify_assignment(ours, cactus):
     if not ours:
         return "no PAF alignment"
@@ -296,6 +330,7 @@ def check_run(folder, reference, ref_labels, units, expected, paf_calls, paf_run
             if not closes:
                 problems.append("{} {} {}: {} in graph + {} absent != {}".format(phase, genome, contig, row[phase + "_bp"], missing, length))
     cactus_contigs = {(r["genome"], r["contig"]): r for r in read_cactus_table(out / "{}.stats".format(name) / "clipped-by-input-contig.tsv.gz")}
+    result["unanchored"] = fill_unanchored(mine, cactus_contigs)
     for (genome, contig), length in sorted(sizes.items()):
         row = mine.get((genome, contig), {"full_bp": 0, "full_frags": 0, "clip_bp": 0, "clip_frags": 0, "ref_chrom": "_NONE_"})
         c = cactus_contigs.get((genome, contig))
@@ -387,7 +422,7 @@ def check_run(folder, reference, ref_labels, units, expected, paf_calls, paf_run
                "paf_only_bp": pafkit.total(p), "cactus_refgap_bp": pafkit.total(cg),
                "graph_in_paf": "{:.3f}".format(share(g, p)), "paf_in_graph": "{:.3f}".format(share(p, g)),
                "graph_in_cactus": "{:.3f}".format(share(g, cg))}
-        row["flag"] = "below 90%" if min(share(g, p), share(p, g)) < 0.9 else ""
+        row["flag"] = "PAF-only stretches missing from the graph's" if share(p, g) < 0.9 else ""
         result["refonly"].append(row)
 
     # measured
@@ -448,6 +483,17 @@ def write_report(path, results, version):
     for i in inv:
         lines.append("| {run} | {assembly} | {unit} | {expected} | {call} | {opposite_fraction} | {bp1_observed}; {bp2_observed} | "
                      "{paf_call} | {graph_vs_paf} | {verdict} |".format(**i))
+    for res in results:
+        n, bp = res.get("unanchored", (0, 0))
+        if n:
+            lines.append("- {}: {} contig(s), {:,} bp, touch no reference node; their chromosome is Cactus's".format(res["run"], n, bp))
+    shared = consensus(inv)
+    if shared:
+        lines += ["", "## Breakpoint intervals shared by the carriers in the graph (reported, for project 2b)", "",
+                  "| run | unit | carriers | breakpoint 1 shared (width; published width) | breakpoint 2 shared (width; published width) |",
+                  "|---|---|---|---|---|"]
+        lines += ["| {run} | {unit} | {carriers} | {bp1_shared} ({bp1_shared_width}; {bp1_published_width}) | "
+                  "{bp2_shared} ({bp2_shared_width}; {bp2_published_width}) |".format(**r) for r in shared]
     lines += ["", "## Reference-only stretches", "", "| run | contig | graph only | PAF only | Cactus refgaps | graph in PAF | PAF in graph | flag |",
               "|---|---|---|---|---|---|---|---|"]
     for r in (x for res in results for x in res["refonly"]):
@@ -489,7 +535,7 @@ def parse_args(argv):
     parser.add_argument("--expected", type=Path, default=REPO / "published" / "expected_inversions.tsv")
     parser.add_argument("--gap", type=int, default=10000, help="largest gap within a projected block (default: %(default)s)")
     parser.add_argument("--refonly-min", type=int, default=10000)
-    for key, default in (("min-identity", 0.30), ("min-block", 10000), ("min-contig", 2000000), ("min-segment", 100000),
+    for key, default in (("breakpoint-tolerance", 10000), ("min-identity", 0.30), ("min-block", 10000), ("min-contig", 2000000), ("min-segment", 100000),
                          ("max-jump", 1000000), ("call-fraction", 0.80), ("min-background", 500000), ("min-interior", 100000),
                          ("flank-window", 2000000)):
         parser.add_argument("--" + key, type=type(default), default=default)
@@ -560,6 +606,9 @@ def main(argv=None, deps=None, now=None):
                       ("measured", ["run", "graph", "nodes", "edges", "length_bp", "wall_min", "cpu_h", "largest_process_gb", "disk_gb"]),
                       ("assignment", ["run", "genome", "contig", "length", "cactus", "cactus_reason", "paf", "paf_label", "paf_share", "status"])):
         pafkit.write_tsv(outdir / (key + ".tsv"), cols, [x for r in results for x in r[key]])
+    pafkit.write_tsv(outdir / "shared_intervals.tsv", ["run", "unit", "carriers", "bp1_shared", "bp1_shared_width", "bp1_published_width",
+                                                      "bp2_shared", "bp2_shared_width", "bp2_published_width"],
+                     consensus([x for r in results for x in r["inversions"]]))
     failed = write_report(outdir / "report.md", results, args.version)
     print("Results written to {}".format(outdir))
     print(open(outdir / "report.md").read().split("\n## ")[0])

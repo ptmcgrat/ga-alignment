@@ -2,9 +2,9 @@
 
 **Project:** 2a, Alignment
 **Repository:** `ga-alignment` (`github.com/ptmcgrat/ga-alignment`)
-**Document version:** 0.13, 2026-11-26 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N; 0.10, 2026-11-24: the pairwise checks pass; gate 3 closed; the graph settings; the graph runner; 0.11, 2026-11-25: the chromosome graph runs; the graph checks; 0.12, 2026-11-25: the graph checks' results; breakpoint intervals through overlaps; fragments as contiguous pieces; `--viz`; 0.13, 2026-11-26: the whole-genome subset graph; graph checks for whole-genome runs)
+**Document version:** 0.14, 2026-11-26 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N; 0.10, 2026-11-24: the pairwise checks pass; gate 3 closed; the graph settings; the graph runner; 0.11, 2026-11-25: the chromosome graph runs; the graph checks; 0.12, 2026-11-25: the graph checks' results; breakpoint intervals through overlaps; fragments as contiguous pieces; `--viz`; 0.13, 2026-11-26: the whole-genome subset graph; graph checks for whole-genome runs; 0.14, 2026-11-26: the subset graph's checks; a 10 kb breakpoint tolerance; shared breakpoint intervals reported)
 **Owner:** McGrath lab
-**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; pairwise alignments done and checked; gates 0 to 3 closed; the chromosome graphs built and checked; the whole-genome subset graph built; its checks (zip `013`) run next
+**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; pairwise alignments done and checked; gates 0 to 3 closed; the chromosome graphs and the whole-genome subset graph built and checked; the checks rerun with zip `014`'s changes, then step 6, the full graph
 
 This is the single specification document of project 2a. It is always replaced whole. It records what the
 coordinator specification already fixes, and the methods the project has decided. Questions 1 and 2 were left to the
@@ -384,7 +384,7 @@ before the full run, relative to the same chromosome in the other assemblies.
    the last on the chromosome, with at least 0.5 Mb aligned there), normal when at most 20% do, and otherwise unresolved;
    unresolved too when the interior and the flanks lie on different sequences. A segment belongs to a unit's inverted stretch
    only if most of it lies inside the unit. For YH, whose alignments Supplementary file 4 came from (its caption), an inverted
-   unit's observed breakpoint intervals must overlap the published ones; each runs from the nearest segment clear of the
+   unit's observed breakpoint intervals must overlap the published ones within 10 kb; each runs from the nearest segment clear of the
    inverted stretch to the stretch, extended through any segment overlapping its edge (2026-11-25, after the graph
    results: an overlap is aligned both ways and may hold the breakpoint); for the other assemblies they are reported, with the
    distance of the block ends from the published intervals. Scored on the subset, 55 units: a disagreement
@@ -409,7 +409,10 @@ before the full run, relative to the same chromosome in the other assemblies.
    stretches (at least 10 kb) against those no subset PAF covers, flagged below 90% either way, with Cactus's `refgaps.bed`
    alongside; and the measured figures (graph size, bases per genome and graph, clipping by reason, time, memory, disk).
    In whole-genome runs (2026-11-26), contigs outside `--refContigs` are named by `--otherContig`, as Cactus names them,
-   and each contig's graph according to Cactus is compared with the PAF assignment (reported).
+   and each contig's graph according to Cactus is compared with the PAF assignment (reported). Contigs whose walks touch no
+   reference node take Cactus's chromosome and are reported; reference-only stretches are flagged only where PAF-only
+   stretches are missing from the graph's; and for each unit, every carrier's interval in the graph and the interval they
+   share are reported for project 2b (2026-11-26).
 
 Graph and PAF must agree on the inversion intervals, the reference-only stretches and the contig-to-chromosome assignment.
 Outputs name the panel version; commands, tool versions and image checksums are recorded. Disagreements are flagged to
@@ -443,6 +446,9 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | 2026-11-24 | `asm5` confirmed for all 24, after the comparison on `YH_YH1m` (decided before the bulk runs; recorded here) | `asm10`'s additional alignment is about 7% divergent (section 4) |
 | 2026-11-24 | Known features scored as in section 5: Kumar et al.'s four block filters; the 80% strand rule; breakpoint intervals scored by overlap with Supplementary file 4 | the method of Kumar et al.'s Version of Record; real blocks end short of breakpoints, which lie in repeats (`YH_YH1m`, LG9) |
 | 2026-11-24 | Expected states from Supplementary file 2; `YH_YH1m`'s LG10 not scored; DT's LG11 scored as both 11a and 11b | genotypes for six of our individuals and all eight species; LG10 is XY in YH; LG11 is one genotype in Supplementary file 2 |
+| 2026-11-26 | Breakpoint intervals count as overlapping the published ones within 10 kb. The fourth scoring change made after seeing results; the owner to be told | the student's decision. In the whole-genome subset graph, `YH_YH2f`'s first breakpoints of 11a and 2 missed the published intervals by 1.7 and 5.2 kb, with the calls right and the graph agreeing with the PAFs; 10 kb is the graph check's own continuity tolerance. It changes those two units only |
+| 2026-11-26 | Contigs whose walks touch no reference node take Cactus's chromosome in the accounting, reported as such; the reference-only flag looks only at PAF-only stretches missing from the graph's | the graph alone cannot place such a contig (one, 127 kb, in `YH_YH2f`); graph-only stretches always exceed PAF-only ones, so the two-way flag fired everywhere |
+| 2026-11-26 | Each unit's carriers' graph intervals, and the interval they share, are reported | the student's proposal that the multi-assembly graph can narrow the published intervals; refining them is project 2b's work (section 7) |
 | 2026-11-25 | Breakpoint intervals run through any segment overlapping the inverted stretch's edge (section 5). Changed after the graph results | YH's 20a and 20b segments overlap by about 25 kb at the tandem junction in the graph, and the published interval lies in the overlap; previewed on the PAF segments, it changes no scored verdict and one reported one (`YH_YH7f` LG9, to agree) |
 | 2026-11-25 | Fragments are counted as contiguous pieces | Cactus's definition; counting walks was a bug in our check (every base count already matched) |
 | 2026-11-25 | `--viz` in graph runs | the student's choice: images of each chromosome's graph to read structural variants by eye; it adds files and changes no graph |
@@ -468,6 +474,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
 | Readers and validators for PAF and GFA, and coordinate-frame conversions, to be added to the common library by the coordinator once the fields are agreed | before first integration |
 | How chromosomes are anchored across assemblies given mixed naming and submitter-specific LG labels (section 2): tested by the pairwise alignments (section 4), with project 2b | no |
 | A shared place for the published tables, if project 2b needs them too (coordinator) | no |
+| Refining the published breakpoint intervals with the multi-assembly graph (the student's proposal): 2a reports each carrier's interval in the graph and the shared one; the refinement itself is project 2b's (coordinator) | no |
 | Whether `YH_LG10Y` joins the full graph | step 6 |
 | Misplaced terminal pieces, each at the start of a chromosome on "+" although it belongs at the far end next to its reference neighbour: `YH_YH1m` LG9 (reference 0–6.2 Mb), `YH_YH7f` LG9 (0–9.7 Mb), and LG20 of `YH_YH1m`, `YH_YH2f`, `YH_YH7f` and `MC_MC2f` (0–17.4 Mb). The identical placement in four Georgia Tech chromosome builds suggests how they were built, not biology: to project 2b through the coordinator | no |
 | DT's first LG9 breakpoint, 0.37 Mb from YH's in all three DT assemblies; `YH_YH7f`'s first LG9 breakpoint, where flank and inverted segments overlap (14.71–14.94 Mb) around the published interval; `CV_CV4f`'s LG20, normal on 20a and unresolved on 20b against CV's 26 of 26 inverted: to project 2b | no |
@@ -542,6 +549,13 @@ project 2b through the coordinator; deciding between assembly error and biology 
   Mb per assembly (at most 1.4% of a genome, `MZ_NMetZ`), mostly unplaced scaffolds, some of them large (3.58 Mb), and in
   four assemblies a 16.6 kb contig, the size of the mitochondrial genome. Zip `013` adapts the graph checks to
   whole-genome runs; they run next.
+- Zip `013`'s check of the subset graph: exact, 2 of 2 graphs (14.66 billion bases spelled). Accounting: every base and
+  fragment count equals Cactus's; one 127 kb `YH_YH2f` contig touches no reference node, so our check could not name its
+  chromosome. Known features: 53 of 55; `YH_YH2f`'s first breakpoints of 11a and 2 missed the published intervals by 1.7
+  and 5.2 kb. Reference-only stretches: the one-directional pattern on every chromosome, including LG2's left arm (11.0
+  Mb) and the reference's unplaced contigs, few of which any assembly pairs with after the chromosome split. Assignment:
+  Cactus and the PAFs agree on every chromosome-scale contig; they differ on two small contigs (0.01 and 0.13 Mb). Zip
+  `014` adds the 10 kb tolerance and the other changes of section 6; the checks rerun.
 - 2026-11-18: an environment zip mistakenly numbered `alignment_001` was committed here (5d9f9e2) and reverted (f60fbea); the
   same content comes as `004`. The same zip had been pushed to `ga-repeats` by mistake (f15e6dc) and was reverted there.
 - The repeat annotation (if it is an input) is not yet produced. Nothing is ready to integrate.
@@ -565,7 +579,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
   and `panel_chromosomes_P1.tsv` from the coordinator repository, and the papers and pages of the briefing, Part D, **uploaded by the
   student as PDFs** (items 1–8 required, 9 and 10 may follow).
 - Python 3.9 is the minimum for code that uses the common library.
-- **`VERSION`** holds the number of the last zip applied, three digits (`013`). Every zip's instructions start by checking `pwd`,
+- **`VERSION`** holds the number of the last zip applied, three digits (`014`). Every zip's instructions start by checking `pwd`,
   `git remote -v` and `VERSION` before anything is copied.
 - **This project on mzebra:** conda env `ga-alignment` (section 6); Cactus image `~/containers/cactus_v4.0.0.sif` (the v3.3.0 image may be removed), with the
   pull cache and tmp in `~/containers/cache` and `~/containers/tmp`, set per session (`.bashrc` is not edited); working space

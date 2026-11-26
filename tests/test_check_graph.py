@@ -190,6 +190,19 @@ class CommandLine(Fixture):
         self.assertEqual([cg.classify_assignment(o, c) for o, c in (("R9", "R9"), ("R9", "R1"), ("R9", "_NONE_"), ("", "R9"))],
                          ["same", "different", "Cactus: none", "no PAF alignment"])
 
+    def test_unanchored_contigs_take_cactus_chromosome(self):
+        mine = {("S", "c1"): {"ref_chrom": "_UNKNOWN_", "full_frags": 1, "full_bp": 127}, ("S", "c2"): {"ref_chrom": "R9", "full_frags": 1, "full_bp": 5}}
+        self.assertEqual(cg.fill_unanchored(mine, {("S", "c1"): {"ref_chrom": "R14"}}), (1, 127))
+        self.assertEqual(mine[("S", "c1")]["ref_chrom"], "R14")
+
+    def test_shared_intervals(self):
+        rows = [{"run": "r", "unit": "9", "assembly": a, "call": "inverted", "bp1_observed": b1, "bp2_observed": "100-200",
+                 "bp1_published": "0-50", "bp2_published": "150-300"} for a, b1 in (("YH_A", "10-40"), ("YH_B", "20-60"))]
+        row = cg.consensus(rows)[0]
+        self.assertEqual((row["carriers"], row["bp1_shared"], row["bp1_shared_width"], row["bp1_published_width"]), ("YH_A,YH_B", "20-40", 20, 50))
+        rows[1]["bp1_observed"] = "45-60"
+        self.assertEqual(cg.consensus(rows)[0]["bp1_shared"], "none (intervals disjoint)")
+
     def test_dry_run_writes_nothing(self):
         code, out = self.run_main()
         self.assertEqual(code, 0)

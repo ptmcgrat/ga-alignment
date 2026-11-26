@@ -137,6 +137,13 @@ class Calls(unittest.TestCase):
                 {"run": "A.asm5.reverse", "direction": "reverse", "preset": "asm5", "query_id": "REF"}]
         self.assertEqual(sp.outlier_runs(rows, "asm5"), {"A.asm5"})
 
+    def test_the_breakpoint_tolerance(self):
+        blocks = pieces([(0, 14 * MB, "+", fwd), (14_200_000, 29_900_000, "-", inv(14_200_000, 29_900_000)), (30_300_000, L, "+", fwd)])
+        unit = dict(UNIT9, bp1_start=14_205_000, bp1_end=14_300_000)        # published 5 kb past our interval
+        self.assertEqual(sp.call_unit(unit, [unit], blocks, P)["bp1_overlap"], "no")
+        tolerant = SimpleNamespace(**dict(vars(P), breakpoint_tolerance=10_000))
+        self.assertEqual(sp.call_unit(unit, [unit], blocks, tolerant)["bp1_overlap"], "yes")
+
     def test_kumar_filters(self):
         keep = pieces([(0, 3 * MB, "+", fwd)])
         low = [block("Q", 0, MB, "+", "R", 3 * MB, 4 * MB, ident=0.2)]
