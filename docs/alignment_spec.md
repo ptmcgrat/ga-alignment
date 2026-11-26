@@ -2,9 +2,9 @@
 
 **Project:** 2a, Alignment
 **Repository:** `ga-alignment` (`github.com/ptmcgrat/ga-alignment`)
-**Document version:** 0.12, 2026-11-25 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N; 0.10, 2026-11-24: the pairwise checks pass; gate 3 closed; the graph settings; the graph runner; 0.11, 2026-11-25: the chromosome graph runs; the graph checks; 0.12, 2026-11-25: the graph checks' results; breakpoint intervals through overlaps; fragments as contiguous pieces; `--viz`)
+**Document version:** 0.13, 2026-11-26 (0.1: first draft from coordinator specification v0.7; 0.2: P1 downloaded and chromosome labels, from v0.8; 0.3: the first conversation starts at the briefing; working with a student; using the common library, from v0.10; 0.4, 2026-11-18: questions 1 and 2 decided by the student, to whom the owner left them; gate 0 closed; the environment; 0.5, 2026-11-19: Cactus 4.0.0; gate 1 closed; the pairwise run details; the input check; 0.6, 2026-11-20: the input check's results; the B chromosome; Kumar's assemblies by name; gate 2's answers; the pairwise order, threads and version folder; 0.7, 2026-11-24: all 28 pairwise runs, `asm5` confirmed; gate 2 closed; Kumar et al.'s Version of Record (assemblies identified; Supplementary files 2 and 4 as recorded inputs); the scoring rules for the pairwise checks; 0.8, 2026-11-24: column 11 and ambiguous bases; the published tables moved to `published/`; 0.9, 2026-11-24: the first check results; inversion calls from the flanks next to the units; breakpoints scored for YH only; column 10 and N facing N; 0.10, 2026-11-24: the pairwise checks pass; gate 3 closed; the graph settings; the graph runner; 0.11, 2026-11-25: the chromosome graph runs; the graph checks; 0.12, 2026-11-25: the graph checks' results; breakpoint intervals through overlaps; fragments as contiguous pieces; `--viz`; 0.13, 2026-11-26: the whole-genome subset graph; graph checks for whole-genome runs)
 **Owner:** McGrath lab
-**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; pairwise alignments done and checked; gates 0 to 3 closed; the chromosome graphs built and checked; the checks rerun with zip `012`'s fixes, then the whole-genome subset run
+**Status:** questions 1 and 2 decided (sections 4 to 6); environment ready; inputs checked; pairwise alignments done and checked; gates 0 to 3 closed; the chromosome graphs built and checked; the whole-genome subset graph built; its checks (zip `013`) run next
 
 This is the single specification document of project 2a. It is always replaced whole. It records what the
 coordinator specification already fixes, and the methods the project has decided. Questions 1 and 2 were left to the
@@ -245,7 +245,7 @@ graph; whole genomes (decision 2026-10-26); all results in reference coordinates
 | no inversions; label test | `AC_SAMEA123396441` | one contig per chromosome; plain-number labels |
 | same species | `MZ_NMetZ` and `MZ_MZ4f` | Kumar's two *M. zebra* controls (MZ_GT3.2f and GT3.3f); Figures S2–S7 apply directly |
 | all six inversions | `YH_YH1m` | Kumar's YH_GT1.1m (assembly name A_spYH_male_GT1.1); LG10 noted as an X/Y mosaic |
-| all six; sequence split across chromosomes | `YH_YH2f` | very likely Kumar's YH_GT1.2f; LG10 X/X; in his Figure S4 its LG10 is split across scaffolds |
+| all six; sequence split across chromosomes | `YH_YH2f` | Kumar's YH_GT1.2f (section 2); LG10 X/X; in his Figure S4 its LG10 is split across scaffolds |
 | LG20a only | `RC_006pf` | *R. longiceps*, RefSeq names |
 | *Diplotaxodon* | `DT_SAMEA123396444` | inverted on 9, 11 and 20, not on 2, 10 or 13 |
 
@@ -408,6 +408,8 @@ before the full run, relative to the same chromosome in the other assemblies.
    (LG20: 4 of 16 reverse-strand runs). Reported: the graph's call and breakpoints against the PAF's; reference-only
    stretches (at least 10 kb) against those no subset PAF covers, flagged below 90% either way, with Cactus's `refgaps.bed`
    alongside; and the measured figures (graph size, bases per genome and graph, clipping by reason, time, memory, disk).
+   In whole-genome runs (2026-11-26), contigs outside `--refContigs` are named by `--otherContig`, as Cactus names them,
+   and each contig's graph according to Cactus is compared with the PAF assignment (reported).
 
 Graph and PAF must agree on the inversion intervals, the reference-only stretches and the contig-to-chromosome assignment.
 Outputs name the panel version; commands, tool versions and image checksums are recorded. Disagreements are flagged to
@@ -533,6 +535,13 @@ project 2b through the coordinator; deciding between assembly error and biology 
   graph is 83.3 Mb full and 54.1 Mb clipped. DT's first LG9 breakpoint: 14.50-14.61 Mb in the graph, 15.11-15.24 Mb in the
   PAFs (reported). Zip `012` fixes the fragment count and the interval rule; both checks rerun before the whole-genome
   subset run.
+- Zip `012`'s reruns (2026-11-25) pass: PAF, 55 of 55 scored units; graph, exact 6 of 6, accounting 3 of 3, known features
+  21 of 21.
+- Whole-genome subset run (`graph/GR_v1/subset`, 2026-11-25/26): exit 0 with `--validate` passed; 368 min, 55 CPU-hours,
+  largest process 68.2 GB; `--viz` images for each chromosome. Left out of every graph, as unassigned or ambiguous: 0.02-13.7
+  Mb per assembly (at most 1.4% of a genome, `MZ_NMetZ`), mostly unplaced scaffolds, some of them large (3.58 Mb), and in
+  four assemblies a 16.6 kb contig, the size of the mitochondrial genome. Zip `013` adapts the graph checks to
+  whole-genome runs; they run next.
 - 2026-11-18: an environment zip mistakenly numbered `alignment_001` was committed here (5d9f9e2) and reverted (f60fbea); the
   same content comes as `004`. The same zip had been pushed to `ga-repeats` by mistake (f15e6dc) and was reverted there.
 - The repeat annotation (if it is an input) is not yet produced. Nothing is ready to integrate.
@@ -556,7 +565,7 @@ project 2b through the coordinator; deciding between assembly error and biology 
   and `panel_chromosomes_P1.tsv` from the coordinator repository, and the papers and pages of the briefing, Part D, **uploaded by the
   student as PDFs** (items 1–8 required, 9 and 10 may follow).
 - Python 3.9 is the minimum for code that uses the common library.
-- **`VERSION`** holds the number of the last zip applied, three digits (`012`). Every zip's instructions start by checking `pwd`,
+- **`VERSION`** holds the number of the last zip applied, three digits (`013`). Every zip's instructions start by checking `pwd`,
   `git remote -v` and `VERSION` before anything is copied.
 - **This project on mzebra:** conda env `ga-alignment` (section 6); Cactus image `~/containers/cactus_v4.0.0.sif` (the v3.3.0 image may be removed), with the
   pull cache and tmp in `~/containers/cache` and `~/containers/tmp`, set per session (`.bashrc` is not edited); working space

@@ -19,6 +19,8 @@ For each run (a folder written by build_graph.py whose last run ended with exit 
   reference-only  reference intervals of at least --refonly-min bp that no other walk visits in the full graph,
                   against those no subset PAF covers: the share of each inside the other (flagged below 90%), and
                   Cactus's refgaps.bed alongside. Reported
+  assignment      whole-genome runs: each contig's graph according to Cactus against our PAF assignment (the newest
+                  PW_v1 summary), contigs outside --refContigs named by --otherContig as Cactus names them. Reported
   measured        nodes, edges and length of each graph; each genome's bases in each graph; what clipping removed by
                   reason; Cactus's inversion and graph stats; wall time, CPU and memory from run.json; disk. Reported
 A dry run unless --go; it writes one new folder, <scratch>/graph/<version>/checks/<UTC timestamp>/, and never
@@ -117,6 +119,32 @@ def read_seqfile(folder):
     return out
 
 
+def option_values(command, name):
+    """The values given to an option in a recorded command (a list), up to the next option."""
+    if name not in command:
+        return []
+    out, i = [], command.index(name) + 1
+    while i < len(command) and not command[i].startswith("--"):
+        out.append(command[i])
+        i += 1
+    return out
+
+
+def graph_namer(command):
+    """How Cactus names the graph a reference contig's sequence lands in: contigs left out of --refContigs are lumped
+    under --otherContig in a whole-genome run."""
+    ref_contigs, other = set(option_values(command, "--refContigs")), (option_values(command, "--otherContig") or [None])[0]
+    return lambda contig: other if other and contig not in ref_contigs else contig
+
+
+def classify_assignment(ours, cactus):
+    if not ours:
+        return "no PAF alignment"
+    if cactus in ("", "_NONE_"):
+        return "Cactus: none"
+    return "same" if cactus == ours else "different"
+
+
 # ---------------------------------------------------------------- exact
 
 def spell(walk_steps, nodes):
@@ -212,18 +240,27 @@ def project(walk, nodes, pos, gap):
 
 # ---------------------------------------------------------------- one run
 
-def check_run(folder, reference, ref_labels, units, expected, paf_calls, paf_runs, args):
+def check_run(folder, reference, ref_labels, units, expected, paf_calls, paf_runs, args, paf_assign=None):
     folder = Path(folder)
     name = folder.name
     out = folder / "out"
-    result = {"run": name, "exact": [], "accounting": [], "inversions": [], "refonly": [], "measured": []}
+    result = {"run": name, "exact": [], "accounting": [], "inversions": [], "refonly": [], "measured": [], "assignment": []}
+    record = json.loads((folder / "run.json").read_text())[-1]
+    named = graph_namer(record.get("command", []))
     genomes = {sample: pafkit.read_fasta(path) for sample, path in read_seqfile(folder)}
-    graphs = {"full": read_gfa(out / "{}.full.gfa.gz".format(name)), "clip": read_gfa(out / "{}.gfa.gz".format(name))}
-    for phase, graph in graphs.items():
+    graphs, sizes_by_phase = {}, {}
+    for phase, filename in (("clip", "{}.gfa.gz"), ("full", "{}.full.gfa.gz")):   # one graph in memory at a time
+        graph = read_gfa(out / filename.format(name))
         problems, spelled = exact_checks(graph, phase, genomes, reference)
         result["exact"].append({"run": name, "graph": phase, "walks": len(graph["walks"]), "bp_spelled": spelled,
                                 "problems": len(problems), "status": "pass" if not problems else "FAIL",
                                 "details": " | ".join(problems[:5])})
+        sizes_by_phase[phase] = (len(graph["nodes"]), graph["edges"], sum(len(x) for x in graph["nodes"].values()))
+        if phase == "clip":
+            graphs["clip"] = {"walks": [dict(w, walk="") for w in graph["walks"]]}
+            del graph
+        else:
+            graphs["full"] = graph
 
     # accounting
     pos_full = reference_positions(graphs["full"], reference)
@@ -244,7 +281,7 @@ def check_run(folder, reference, ref_labels, units, expected, paf_calls, paf_run
         row[phase + "_bp"], row[phase + "_frags"] = pafkit.total(pieces), len(pieces)
     for key, row in mine.items():
         if row["full_frags"]:
-            row["ref_chrom"] = chroms[key].most_common(1)[0][0] if chroms[key] else "_UNKNOWN_"
+            row["ref_chrom"] = named(chroms[key].most_common(1)[0][0]) if chroms[key] else "_UNKNOWN_"
     absent = {phase: read_beds(out / "{}.stats".format(name) / ("clipped.full.beds.tar.gz" if phase == "full" else "clipped.beds.tar.gz"))
               for phase in graphs}
     problems = []
@@ -282,6 +319,18 @@ def check_run(folder, reference, ref_labels, units, expected, paf_calls, paf_run
         problems.append("rows only in Cactus's table: {}".format(sorted(set(cactus_chroms) - set(per_chrom))))
     result["accounting"].append({"run": name, "contigs": len(sizes), "problems": len(problems),
                                  "status": "pass" if not problems else "FAIL", "details": " | ".join(problems[:5])})
+    if record.get("mode") == "whole genome" and paf_assign is not None:
+        reasons = {c: reason for (c, reason) in absent["full"]}
+        for (genome, contig), length in sorted(sizes.items()):
+            if genome == reference:
+                continue
+            ours = paf_assign.get(genome, {}).get(contig)
+            cactus = cactus_contigs.get((genome, contig), {}).get("ref_chrom", "")
+            our_chrom = named(ours[0]) if ours else ""
+            result["assignment"].append({"run": name, "genome": genome, "contig": contig, "length": length,
+                                         "cactus": cactus, "cactus_reason": reasons.get(contig, "") if cactus in ("", "_NONE_") else "",
+                                         "paf": our_chrom, "paf_label": ref_labels.get(ours[0], "") if ours else "",
+                                         "paf_share": ours[1] if ours else "", "status": classify_assignment(our_chrom, cactus)})
 
     # known features, graph against PAF
     blocks = []
@@ -343,11 +392,10 @@ def check_run(folder, reference, ref_labels, units, expected, paf_calls, paf_run
 
     # measured
     stats_dir = out / "{}.stats".format(name)
-    record = json.loads((folder / "run.json").read_text())[-1]
     disk = sum(f.stat().st_size for f in folder.rglob("*") if f.is_file())
-    for phase, graph in graphs.items():
-        result["measured"].append({"run": name, "graph": phase, "nodes": len(graph["nodes"]), "edges": graph["edges"],
-                                   "length_bp": sum(len(s) for s in graph["nodes"].values()),
+    for phase in ("full", "clip"):
+        nodes, edges, length_bp = sizes_by_phase[phase]
+        result["measured"].append({"run": name, "graph": phase, "nodes": nodes, "edges": edges, "length_bp": length_bp,
                                    "wall_min": round(record.get("wall_s", 0) / 60, 1), "cpu_h": round(record.get("cpu_s", 0) / 3600, 2),
                                    "largest_process_gb": record.get("largest_process_peak_gb", ""), "disk_gb": round(disk / 1e9, 2)})
     result["clip_by_genome"] = [dict(r, run=name) for r in read_cactus_table(stats_dir / "clipped-by-genome.tsv")] \
@@ -404,6 +452,20 @@ def write_report(path, results, version):
               "|---|---|---|---|---|---|---|---|"]
     for r in (x for res in results for x in res["refonly"]):
         lines.append("| {run} | {label} | {graph_only_bp:,} | {paf_only_bp:,} | {cactus_refgap_bp:,} | {graph_in_paf} | {paf_in_graph} | {flag} |".format(**r))
+    rows = [x for res in results for x in res.get("assignment", [])]
+    if rows:
+        lines += ["", "## Chromosome assignment: Cactus against the PAFs (reported)", "",
+                  "| run | genome | same | different | Cactus: none | no PAF alignment |", "|---|---|---|---|---|---|"]
+        for key in sorted({(r["run"], r["genome"]) for r in rows}):
+            group = [r for r in rows if (r["run"], r["genome"]) == key]
+            cell = lambda status: "{} ({:.2f} Mb)".format(sum(r["status"] == status for r in group),
+                                                         sum(r["length"] for r in group if r["status"] == status) / 1e6)
+            lines.append("| {} | {} | {} | {} | {} | {} |".format(key[0], key[1], cell("same"), cell("different"),
+                                                                    cell("Cactus: none"), cell("no PAF alignment")))
+        worst = sorted((r for r in rows if r["status"] in ("different", "Cactus: none")), key=lambda r: -r["length"])[:12]
+        lines += ["", "Largest contigs not placed as the PAFs place them:", ""] + [
+            "- {genome} {contig} ({length:,} bp): Cactus {cactus} {cactus_reason}; PAF {paf} {paf_label} (share {paf_share})".format(**r)
+            for r in worst]
     lines += ["", "## Measured", "", "| run | graph | nodes | edges | length | wall min | CPU h | largest GB | disk GB |", "|---|---|---|---|---|---|---|---|---|"]
     for m in (x for res in results for x in res["measured"]):
         lines.append("| {run} | {graph} | {nodes:,} | {edges:,} | {length_bp:,} | {wall_min} | {cpu_h} | {largest_process_gb} | {disk_gb} |".format(**m))
@@ -462,6 +524,12 @@ def main(argv=None, deps=None, now=None):
     paf_calls = {(r["assembly"], r["unit"]): r for r in pafkit.read_table(summaries[-1]) if r["preset"] == args.preset} if summaries else {}
     pw = Path(args.scratch).expanduser() / "pairwise" / args.pairwise_version
     manifest = pafkit.read_manifest(pw) if (pw / "manifest.tsv").exists() else []
+    paf_assign = collections.defaultdict(dict)
+    assignments = sorted((Path(args.scratch).expanduser() / "pairwise" / args.pairwise_version / "summary").glob("*/assignment.tsv"))
+    for r in (pafkit.read_table(assignments[-1]) if assignments else []):
+        sample, _, preset = r["run"].rpartition(".")
+        if preset == args.preset:
+            paf_assign[sample][r["query"]] = (r["chromosome"], r["share"], r["aligned_bp"])
     tasks = []
     for folder in finished:
         samples = [s for s, _ in read_seqfile(folder) if s != reference]
@@ -473,7 +541,7 @@ def main(argv=None, deps=None, now=None):
                     if rec["tp"] in pafkit.PRIMARY:
                         cov[rec["tname"]].append((rec["ts"], rec["te"]))
                 paf_runs.append(dict(cov))
-        tasks.append((str(folder), reference, ref_labels, units, expected, paf_calls, paf_runs, args))
+        tasks.append((str(folder), reference, ref_labels, units, expected, paf_calls, paf_runs, args, dict(paf_assign)))
     jobs = max(1, min(getattr(args, "max_jobs", None) or 1, len(tasks) or 1))
     if jobs == 1:
         results = [check_run(*t) for t in tasks]
@@ -489,7 +557,8 @@ def main(argv=None, deps=None, now=None):
                                       "verdict", "paf_call", "graph_vs_paf"]),
                       ("refonly", ["run", "contig", "label", "graph_only_bp", "paf_only_bp", "cactus_refgap_bp", "graph_in_paf",
                                    "paf_in_graph", "graph_in_cactus", "flag"]),
-                      ("measured", ["run", "graph", "nodes", "edges", "length_bp", "wall_min", "cpu_h", "largest_process_gb", "disk_gb"])):
+                      ("measured", ["run", "graph", "nodes", "edges", "length_bp", "wall_min", "cpu_h", "largest_process_gb", "disk_gb"]),
+                      ("assignment", ["run", "genome", "contig", "length", "cactus", "cactus_reason", "paf", "paf_label", "paf_share", "status"])):
         pafkit.write_tsv(outdir / (key + ".tsv"), cols, [x for r in results for x in r[key]])
     failed = write_report(outdir / "report.md", results, args.version)
     print("Results written to {}".format(outdir))

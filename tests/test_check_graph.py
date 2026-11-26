@@ -169,6 +169,27 @@ class CommandLine(Fixture):
         self.assertEqual(code, 0, out)
         self.assertIn("accounting: 1 of 1 runs", out)
 
+    def test_a_whole_genome_run_compares_the_assignment(self):
+        cmd = ["cactus-pangenome", "--refContigs", "R9", "--otherContig", "chrOther", "--gfa", "full"]
+        (self.run / "run.json").write_text(json.dumps([{"exit_status": 0, "mode": "whole genome", "command": cmd,
+                                                         "wall_s": 60, "cpu_s": 60, "largest_process_peak_gb": 1}]))
+        summary = self.root / "scratch" / "pairwise" / "PW_v1" / "summary" / "20260101-000000"
+        (summary / "assignment.tsv").write_text("run\tquery\tchromosome\tshare\taligned_bp\n"
+                                                "YH_A.asm5\ta9\tR9\t1.000\t39000\nMZ_B.asm5\tb9\tR9\t1.000\t39000\n"
+                                                "MZ_B.asm5\tbX\tR9\t0.900\t450\n")
+        code, out = self.run_main("--go", stamp=8)
+        self.assertEqual(code, 0, out)
+        rows = {r["contig"]: r for r in pafkit.read_table(self.root / "scratch" / "graph" / "GR_v1" / "checks" / "20260102-030408" / "assignment.tsv")}
+        self.assertEqual({c: r["status"] for c, r in rows.items()}, {"a9": "same", "b9": "same", "bX": "Cactus: none"})
+        self.assertEqual(rows["bX"]["cactus_reason"], "unassigned")
+
+    def test_contigs_outside_ref_contigs_are_named_as_cactus_names_them(self):
+        named = cg.graph_namer(["x", "--refContigs", "NC_1", "NC_2", "--otherContig", "chrOther", "--gfa", "full"])
+        self.assertEqual((named("NC_1"), named("NW_9")), ("NC_1", "chrOther"))
+        self.assertEqual(cg.graph_namer(["--refContigs", "NC_1"])("NW_9"), "NW_9")      # chromosome runs: no lumping
+        self.assertEqual([cg.classify_assignment(o, c) for o, c in (("R9", "R9"), ("R9", "R1"), ("R9", "_NONE_"), ("", "R9"))],
+                         ["same", "different", "Cactus: none", "no PAF alignment"])
+
     def test_dry_run_writes_nothing(self):
         code, out = self.run_main()
         self.assertEqual(code, 0)
