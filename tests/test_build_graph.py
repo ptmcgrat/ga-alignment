@@ -9,6 +9,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 from unittest import mock
 
@@ -101,6 +102,16 @@ class Planning(StandIn):
         self.assertIn("--maxCores 16", out)
         code, out, _ = self.run_main("--set", "all")
         self.assertIn("--gfa full --viz --validate", out)
+
+    def test_the_full_graph_options(self):
+        with mock.patch.object(pafkit, "SUPPLEMENTARY", {"B": "h2tg"}):           # B stands in for YH_LG10Y
+            _, plain, _ = self.run_main("--set", "all")
+            code, out, _ = self.run_main("--set", "all", "--supplementary", "--gbz", "--chrom-og")
+        self.assertEqual(code, 0, out)
+        self.assertIn("--gfa full --viz --gbz full --chrom-og full --validate", out)
+        self.assertIn("/B/", out)                       # the supplementary assembly joins the run
+        self.assertNotIn("/B/", plain)                  # and only when asked
+        self.assertIn(str(self.folder("all")), out)
 
     def test_an_assembly_without_sequences_for_the_chromosome_stops(self):
         code, _, err = self.run_main("--assemblies", "A", "B", "--chromosome", "LG1", "--name", "x")

@@ -13,7 +13,8 @@ the 24 others), or --assemblies ID ... (the reference is always added).
 The command, run under Apptainer from the Cactus 4.0.0 image:
   taskset -c <cpus> apptainer exec --cleanenv --env TMPDIR=<work> --bind ... <image> cactus-pangenome <jobstore> <seqfile>
       --outDir <out> --outName <name> --reference MZ_NMK2024a --refContigs ... [--otherContig chrOther]
-      --gfa full clip (or full alone with --set all) --viz --validate --workDir <work>
+      --gfa full clip (or full alone with --set all) --viz [--gbz full] [--chrom-og full] --validate --workDir <work>
+      (--supplementary adds YH_LG10Y; --gbz and --chrom-og write the GBZ index and per-chromosome odgi graphs, step 6)
       --maxCores N --mgCores N --consCores N --indexCores N --mapCores min(6, N) --maxMemory <memory> [--restart]
 --viz adds odgi's 1-D image of each chromosome's full graph (agreed 2026-11-25); it changes no graph.
 taskset confines the whole run to the CPUs given (--cpus, default the first --threads CPUs); the per-step options
@@ -111,7 +112,12 @@ def cactus_command(args, folder, name, ref_contigs, other_contig, gfa, binds):
             "--refContigs"] + list(ref_contigs)
     if other_contig:
         cmd += ["--otherContig", other_contig]
-    cmd += ["--gfa"] + list(gfa) + ["--viz", "--validate", "--workDir", str(work),
+    cmd += ["--gfa"] + list(gfa) + ["--viz"]
+    if getattr(args, "gbz", False):
+        cmd += ["--gbz", "full"]
+    if getattr(args, "chrom_og", False):
+        cmd += ["--chrom-og", "full"]
+    cmd += ["--validate", "--workDir", str(work),
                                     "--maxCores", str(threads), "--mgCores", str(threads), "--consCores", str(threads),
                                     "--indexCores", str(threads), "--mapCores", str(min(6, threads)),
                                     "--maxMemory", args.memory]
@@ -129,6 +135,8 @@ def plan(args, deps):
         assemblies = deps.panel_ids()
     else:
         assemblies = list(SUBSET)
+    if getattr(args, "supplementary", False):
+        assemblies += [a for a in pafkit.SUPPLEMENTARY if a not in assemblies]
     unknown = [a for a in assemblies if a not in deps.accessions or a == reference]
     if unknown:
         raise SystemExit("not panel assemblies (or the reference): {}".format(", ".join(unknown)))
@@ -166,6 +174,9 @@ def parse_args(argv):
     parser.add_argument("--scratch", type=Path, default=DEFAULT_SCRATCH)
     parser.add_argument("--taskset", default="taskset")
     parser.add_argument("--apptainer", default="apptainer")
+    parser.add_argument("--supplementary", action="store_true", help="add YH_LG10Y, held beside the panel (spec, section 6)")
+    parser.add_argument("--gbz", action="store_true", help="also write the full graph's GBZ index (--gbz full)")
+    parser.add_argument("--chrom-og", action="store_true", help="also write per-chromosome odgi graphs (--chrom-og full)")
     parser.add_argument("--restart", action="store_true", help="resume an interrupted run from its job store")
     parser.add_argument("--go", action="store_true", help="run it")
     args = parser.parse_args(argv)
